@@ -27,19 +27,35 @@ void EditorWidget::buildEffectContainer(AEffect *effect)
 	RegisterClassEx(&wcex);
 
 	const auto style = WS_CAPTION | WS_THICKFRAME | WS_OVERLAPPEDWINDOW;
-	HWND hwnd = CreateWindow(wcex.lpszClassName, TEXT(""), style, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
+	m_hwnd = CreateWindow(wcex.lpszClassName, TEXT(""), style, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
 
-	QWidget *widget = QWidget::createWindowContainer(QWindow::fromWinId((WId)hwnd), this);
-	widget->move(0, 0);
-	widget->resize(300, 300);
+	MoveWindow(m_hwnd, 0, 0, 300, 300, false);
 
-	effect->dispatcher(effect, effEditOpen, 0, 0, hwnd, 0);
+	effect->dispatcher(effect, effEditOpen, 0, 0, m_hwnd, 0);
 
 	VstRect *vstRect = nullptr;
 	effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
 	if (vstRect) {
-		widget->resize(vstRect->right - vstRect->left, vstRect->bottom - vstRect->top);
+		MoveWindow(m_hwnd, vstRect->left, vstRect->top, vstRect->right, vstRect->bottom, false);
 	}
+}
+
+void EditorWidget::setWindowTitle(const char *title)
+{
+	TCHAR wstrTitle[256];
+	MultiByteToWideChar(CP_UTF8, 0, title, -1, &wstrTitle[0], 256);
+	SetWindowText(m_hwnd, &wstrTitle[0]);
+}
+
+void EditorWidget::close()
+{
+	DestroyWindow(m_hwnd);
+	m_hwnd = nullptr;
+}
+
+void EditorWidget::show()
+{
+	ShowWindow(m_hwnd, SW_SHOW);
 }
 
 void EditorWidget::handleResizeRequest(int width, int height)

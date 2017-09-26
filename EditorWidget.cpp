@@ -18,13 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "headers/EditorWidget.h"
 
-EditorWidget::EditorWidget(QWidget *parent, VSTPlugin *plugin) : QWidget(parent), plugin(plugin)
+EditorWidget::EditorWidget(VSTPlugin *plugin) : plugin(plugin)
 {
-	setWindowFlags(this->windowFlags() |= Qt::MSWindowsFixedSizeDialogHint);
-}
-
-void EditorWidget::closeEvent(QCloseEvent *event)
-{
-	plugin->closeEditor();
-	UNUSED_PARAMETER(event);
 }

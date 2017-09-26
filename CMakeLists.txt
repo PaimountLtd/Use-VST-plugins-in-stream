@@ -7,8 +7,6 @@ project(obs-vst)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
 
-find_package(Qt5Widgets REQUIRED)
-
 option(VST_USE_BUNDLED_HEADERS "Build with Bundled Headers" ON)
 
 if(VST_USE_BUNDLED_HEADERS)
@@ -65,8 +63,7 @@ add_library(obs-vst MODULE
 	${vst-HEADER})
 
 target_link_libraries(obs-vst
-	libobs
-	Qt5::Widgets)
+	libobs)
 
 if(APPLE)
 	target_link_libraries(obs-vst

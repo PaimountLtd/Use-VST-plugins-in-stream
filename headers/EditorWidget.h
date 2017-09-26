@@ -19,14 +19,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef OBS_STUDIO_EDITORDIALOG_H
 #define OBS_STUDIO_EDITORDIALOG_H
 
-#include <QWidget>
-#ifdef __APPLE__
-#include <QMacCocoaViewContainer>
-#elif WIN32
-#include <QWindow>
+#if WIN32
 #include <Windows.h>
 #elif __linux__
-#include <QWindow>
 #include <xcb/xcb.h>
 #endif
 
@@ -44,22 +39,23 @@ public:
 	short right;
 };
 
-class EditorWidget : public QWidget {
+class EditorWidget{
 
 	VSTPlugin *plugin;
 
 #ifdef __APPLE__
-	QMacCocoaViewContainer *cocoaViewContainer = NULL;
 #elif WIN32
-
+	HWND m_hwnd;
 #elif __linux__
-
+	xcb_window_t m_wid;
 #endif
 
 public:
-	EditorWidget(QWidget *parent, VSTPlugin *plugin);
+	EditorWidget(VSTPlugin *plugin);
+	void setWindowTitle(const char *title);
+	void show();
+	void close();
 	void buildEffectContainer(AEffect *effect);
-	void closeEvent(QCloseEvent *event) override;
 	void handleResizeRequest(int width, int height);
 };
 
