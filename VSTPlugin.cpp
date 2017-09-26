@@ -16,7 +16,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 
+#include <vector>
+
 #include "headers/VSTPlugin.h"
+
+#define CBASE64_IMPLEMENTATION
+#include "cbase64.h"
 
 VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
 {
@@ -156,23 +161,17 @@ void VSTPlugin::unloadEffect()
 	unloadLibrary();
 }
 
+bool VSTPlugin::isEditorOpen()
+{
+	return !!editorWidget;
+}
+
 void VSTPlugin::openEditor()
 {
 	if (effect && !editorWidget) {
-		editorWidget = new EditorWidget(nullptr, this);
+		editorWidget = new EditorWidget(this);
 		editorWidget->buildEffectContainer(effect);
-
-		if (sourceName.empty()) {
-			sourceName = "VST 2.x";
-		}
-
-		if (filterName.empty()) {
-			editorWidget->setWindowTitle(QString("%1 - %2").arg(sourceName.c_str(),
-					effectName));
-		} else {
-			editorWidget->setWindowTitle(QString("%1:%2 - %3").arg(sourceName.c_str(),
-					filterName.c_str(), effectName));
-		}
+		editorWidget->setWindowTitle(effectName);
 		editorWidget->show();
 	}
 }
@@ -226,17 +225,30 @@ intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index,
 
 std::string VSTPlugin::getChunk()
 {
+	cbase64_encodestate encoder;
+	std::string encodedData;
+
+	cbase64_init_encodestate(&encoder);
+
 	if (!effect) {
 		return "";
 	}
 
 	if (effect->flags & effFlagsProgramChunks) {
 		void *buf = nullptr;
-
 		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
 
-		QByteArray data = QByteArray((char *)buf, chunkSize);
-		return QString(data.toBase64()).toStdString();
+		encodedData.resize(cbase64_calc_encoded_length(chunkSize));
+
+		int blockEnd = 
+		cbase64_encode_block(
+			(const unsigned char*)buf, 
+			chunkSize, &encodedData[0], 
+			&encoder);
+
+		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
+
+		return encodedData;
 	} else {
 		std::vector<float> params;
 		for (int i = 0; i < effect->numParams; i++) {
@@ -244,33 +256,42 @@ std::string VSTPlugin::getChunk()
 			params.push_back(parameter);
 		}
 
-		const char *bytes   = reinterpret_cast<const char *>(&params[0]);
-		QByteArray  data    = QByteArray(bytes, (int)(sizeof(float) * params.size()));
-		std::string encoded = QString(data.toBase64()).toStdString();
-		return encoded;
+		const char *bytes = reinterpret_cast<const char *>(&params[0]);
+		size_t size = sizeof(float) * params.size();
+
+		encodedData.resize(cbase64_calc_encoded_length(size));
+
+		int blockEnd = 
+		cbase64_encode_block(
+			(const unsigned char*)bytes, 
+			size, &encodedData[0], 
+			&encoder);
+
+		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
+		return encodedData;
 	}
 }
 
 void VSTPlugin::setChunk(std::string data)
 {
+	cbase64_decodestate decoder;
+	cbase64_init_decodestate(&decoder);
+	std::string decodedData;
+
+	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
+	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
+
 	if (!effect) {
 		return;
 	}
 
 	if (effect->flags & effFlagsProgramChunks) {
-		QByteArray base64Data = QByteArray(data.c_str(), (int)data.length());
-		QByteArray chunkData  = QByteArray::fromBase64(base64Data);
-		void *     buf        = nullptr;
-		buf                   = chunkData.data();
-		effect->dispatcher(effect, effSetChunk, 1, chunkData.length(), buf, 0);
+		effect->dispatcher(effect, effSetChunk, 1, decodedData.length(), &decodedData[0], 0);
 	} else {
-		QByteArray base64Data = QByteArray(data.c_str(), (int)data.length());
-		QByteArray paramData  = QByteArray::fromBase64(base64Data);
-
-		const char * p_chars  = paramData.data();
+		const char * p_chars  = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);
 
-		int size = paramData.length() / sizeof(float);
+		int size = decodedData.length() / sizeof(float);
 
 		std::vector<float> params(p_floats, p_floats + size);
 
