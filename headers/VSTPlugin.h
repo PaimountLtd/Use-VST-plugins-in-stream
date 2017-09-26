@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BLOCK_SIZE 512
 
 #include <string>
-#include <QDirIterator>
 #include <obs-module.h>
 #include "aeffectx.h"
 #include "vst-plugin-callbacks.hpp"
@@ -90,6 +89,7 @@ public:
 	~VSTPlugin();
 	void        loadEffectFromPath(std::string path);
 	void        unloadEffect();
+	bool        isEditorOpen();
 	void        openEditor();
 	void        closeEditor();
 	std::string getChunk();

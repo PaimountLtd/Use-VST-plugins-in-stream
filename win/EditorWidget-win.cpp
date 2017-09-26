@@ -27,39 +27,50 @@ void EditorWidget::buildEffectContainer(AEffect *effect)
 	RegisterClassExW(&wcex);
 
 	const auto style = WS_CAPTION | WS_THICKFRAME | WS_OVERLAPPEDWINDOW;
-	windowHandle =
-	        CreateWindowW(wcex.lpszClassName, TEXT(""), style, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
+	m_hwnd = CreateWindow(wcex.lpszClassName, TEXT(""), style, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
 
-	// set pointer to vst effect for window long
-	LONG_PTR wndPtr = (LONG_PTR)effect;
-	SetWindowLongPtr(windowHandle, -21 /*GWLP_USERDATA*/, wndPtr);
+	MoveWindow(m_hwnd, 0, 0, 300, 300, false);
 
-	QWidget *widget = QWidget::createWindowContainer(QWindow::fromWinId((WId)windowHandle), this);
-	widget->move(0, 0);
-	widget->resize(300, 300);
-
-	effect->dispatcher(effect, effEditOpen, 0, 0, windowHandle, 0);
+	effect->dispatcher(effect, effEditOpen, 0, 0, m_hwnd, 0);
 
 	VstRect *vstRect = nullptr;
 	effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
 	if (vstRect) {
-		widget->resize(vstRect->right - vstRect->left, vstRect->bottom - vstRect->top);
+		MoveWindow(m_hwnd, vstRect->left, vstRect->top, vstRect->right, vstRect->bottom, false);
 	}
 }
 
-void EditorWidget::handleResizeRequest(int, int)
+void EditorWidget::setWindowTitle(const char *title)
+{
+	TCHAR wstrTitle[256];
+	MultiByteToWideChar(CP_UTF8, 0, title, -1, &wstrTitle[0], 256);
+	SetWindowText(m_hwnd, &wstrTitle[0]);
+}
+
+void EditorWidget::close()
+{
+	DestroyWindow(m_hwnd);
+	m_hwnd = nullptr;
+}
+
+void EditorWidget::show()
+{
+	ShowWindow(m_hwnd, SW_SHOW);
+}
+
+void EditorWidget::handleResizeRequest(int width, int height)
 {
 	// Some plugins can't resize automatically (like SPAN by Voxengo),
 	// so we must resize window manually
 
 	// get pointer to vst effect from window long
-	LONG_PTR    wndPtr   = (LONG_PTR)GetWindowLongPtrW(windowHandle, -21 /*GWLP_USERDATA*/);
+	LONG_PTR    wndPtr   = (LONG_PTR)GetWindowLongPtrW(m_hwnd, -21 /*GWLP_USERDATA*/);
 	AEffect *   effect   = (AEffect *)(wndPtr);
 	VstRect *   rec      = nullptr;
 	static RECT PluginRc = {0};
 	RECT        winRect  = {0};
 
-	GetWindowRect(windowHandle, &winRect);
+	GetWindowRect(m_hwnd, &winRect);
 	if (effect) {
 		effect->dispatcher(effect, effEditGetRect, 1, 0, &rec, 0);
 	}
@@ -80,7 +91,7 @@ void EditorWidget::handleResizeRequest(int, int)
 			                   0);
 
 			// move window to apply pos
-			MoveWindow(windowHandle,
+			MoveWindow(m_hwnd,
 			           winRect.left,
 			           winRect.top,
 			           PluginRc.right - PluginRc.left,
