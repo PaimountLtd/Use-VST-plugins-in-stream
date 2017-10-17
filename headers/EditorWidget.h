@@ -39,7 +39,7 @@ public:
 	short right;
 };
 
-class EditorWidget{
+class EditorWidget {
 
 	VSTPlugin *plugin;
 
