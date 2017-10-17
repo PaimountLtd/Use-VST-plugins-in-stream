@@ -72,4 +72,9 @@ if(APPLE)
 		Qt5::MacExtras)
 endif(APPLE)
 
+if (WIN32)
+	target_link_libraries(obs-vst 
+		Dwmapi)
+endif(WIN32)
+
 install_obs_plugin_with_data(obs-vst data)
