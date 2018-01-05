@@ -176,6 +176,45 @@ std::vector<std::string> win32_build_dir_list()
 	return result;
 }
 
+typedef std::pair<std::string, std::string> vst_data;
+
+static void find_plugins(std::vector<vst_data> &plugin_list, const char* dir_name)
+{
+	os_dir_t *dir = os_opendir(dir_name);
+	os_dirent *ent = os_readdir(dir);
+
+	while (ent != NULL) {
+		std::string path(dir_name);
+
+		if (ent->d_name[0] == '.')
+			goto next_entry;
+
+		path.append("/");
+		path.append(ent->d_name);
+
+		/* If it's a directory, recurse */
+		if (ent->directory) {
+			find_plugins(plugin_list, path.c_str());
+			goto next_entry;
+		}
+
+		/* This works well on Apple since we use *.vst
+		 * for the extension but not for other platforms. 
+		 * A Dll dependency will be added even if it's not 
+		 * an actual VST plugin. Can't do much about it 
+		 * unfortunately unless everyone suddenly decided to
+		 * use a more sane extension. */
+		if (valid_extension(ent->d_name)) {
+			plugin_list.push_back({ ent->d_name, path });
+		}
+
+	next_entry:
+		ent = os_readdir(dir);
+	}
+
+	os_closedir(dir);
+}
+
 static void fill_out_plugins(obs_property_t *list)
 {
 #ifdef __APPLE__
@@ -213,25 +252,10 @@ static void fill_out_plugins(obs_property_t *list)
 	}
 #endif
 
-	typedef std::pair<std::string, std::string> vst_data;
 	std::vector<vst_data> vst_list;
 
 	for (int i = 0; i < dir_list.size(); ++i) {
-		os_dir_t *dir = os_opendir(dir_list[i].c_str());
-		os_dirent *ent = os_readdir(dir);
-
-		while (ent != NULL) {
-			/* If valid file format */
-			if (valid_extension(ent->d_name)) {
-				std::string path(dir_list[i]);
-				path.append(ent->d_name);
-				vst_list.push_back({ ent->d_name, path });
-			}
-
-			ent = os_readdir(dir);
-		}
-
-		os_closedir(dir);
+		find_plugins(vst_list, dir_list[i].c_str());
 	}
 
 	obs_property_list_add_string(list, "{Please select a plug-in}", nullptr);
