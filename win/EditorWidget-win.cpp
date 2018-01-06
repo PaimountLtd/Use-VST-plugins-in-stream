@@ -50,40 +50,39 @@ void EditorWidget::buildEffectContainer(AEffect *effect)
 	LONG exStyle = WS_EX_DLGMODALFRAME;
 
 	VstRect *vstRect = nullptr;
-	effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
-
-	RECT rect = { 0 };
-	
-	if (vstRect) {
-		rect.left = vstRect->left;
-		rect.right = vstRect->right;
-		rect.top = vstRect->top;
-		rect.bottom = vstRect->bottom;
-
-		AdjustWindowRectEx(&rect, style, false, exStyle);
-	}
 
 	m_hwnd = 
 	CreateWindowEx(exStyle, wcex.lpszClassName, TEXT(""), style, 
-		rect.left, rect.top, rect.right, rect.bottom, 
+		0, 0, 0, 0, 
 		nullptr, nullptr, nullptr, nullptr);
 
-	SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)plugin);
+	effect->dispatcher(effect, effEditOpen, 0, 0, m_hwnd, 0);
+	effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
+
+	show();
+	SetWindowPos(m_hwnd, 0, vstRect->left, vstRect->top, vstRect->right, vstRect->bottom, 0);
+
+	RECT rect = { 0 };
+	RECT border = { 0 };
+	
+	if (vstRect) {
+		RECT clientRect; 
+
+		GetWindowRect(m_hwnd, &rect);
+		GetClientRect(m_hwnd, &clientRect);
+		
+		border.left = clientRect.left - rect.left;
+		border.right = rect.right - clientRect.right;
+
+		border.top = clientRect.top - rect.top;
+		border.bottom = rect.bottom - clientRect.bottom;
+	}
 
 	/* Despite the use of AdjustWindowRectEx here, the docs lie to us 
 	   when they say it will give us the smallest size to accomodate the
 	   client area wanted. Since Vista came out, we now have to take into
 	   account hidden borders introduced by DWM. This can only be done 
 	   *after* we've created the window as well. */
-	RECT frame;
-	DwmGetWindowAttribute(m_hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(RECT));
-	
-	RECT border;
-	border.left = frame.left - rect.left;
-	border.top = frame.top - rect.top;
-	border.right = rect.right - frame.right;
-	border.bottom = rect.bottom - frame.bottom;
-	
 	rect.left -= border.left;
 	rect.top -= border.top;
 	rect.right += border.left + border.right;
@@ -92,7 +91,7 @@ void EditorWidget::buildEffectContainer(AEffect *effect)
 	SetWindowPos(m_hwnd, 0, rect.left, rect.top, rect.right, rect.bottom, 0);
 	SetWindowPos(m_hwnd, 0, 0, 0, 0, 0, SWP_NOSIZE);
 
-	effect->dispatcher(effect, effEditOpen, 0, 0, m_hwnd, 0);
+	SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)plugin);
 }
 
 void EditorWidget::setWindowTitle(const char *title)
