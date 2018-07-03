@@ -25,7 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
 {
-
 	int numChannels = VST_MAX_CHANNELS;
 	int blocksize   = BLOCK_SIZE;
 
@@ -35,18 +34,20 @@ VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
 		inputs[channel]  = (float *)malloc(sizeof(float *) * blocksize);
 		outputs[channel] = (float *)malloc(sizeof(float *) * blocksize);
 	}
+
+	widget.setWindowCloseCallback(editorWidgetClosed, this);
 }
 
 void VSTPlugin::loadEffectFromPath(std::string path)
 {
-	if (this->pluginPath.compare(path) != 0) {
+	if (this->libraryPath.compare(path) != 0) {
 		closeEditor();
 		unloadEffect();
 	}
 
 	if (!effect) {
-		pluginPath = path;
-		effect     = loadEffect();
+		libraryPath = path;
+		effect      = loadLibrary();
 
 		if (!effect) {
 			// TODO: alert user of error
@@ -139,29 +140,25 @@ void VSTPlugin::unloadEffect()
 
 bool VSTPlugin::isEditorOpen()
 {
-	return !!editorWidget;
+	return widget.isVisible();
 }
 
 void VSTPlugin::openEditor()
 {
-	if (effect && !editorWidget) {
-		editorWidget = new EditorWidget(this);
-		editorWidget->buildEffectContainer(effect);
-		editorWidget->setWindowTitle(effectName);
-		editorWidget->show();
+	if (effect) {
+		widget.setWindowContent(effect);
+		widget.setWindowTitle(effectName);
+		widget.show();
 	}
 }
 
 void VSTPlugin::closeEditor()
 {
 	if (effect) {
-		effect->dispatcher(effect, effEditClose, 0, 0, nullptr, 0);
+		widget.clearWindowContent(effect);
 	}
-
-	if (editorWidget) {
-		editorWidget->close();
-		delete editorWidget;
-		editorWidget = nullptr;
+	if (widget.isVisible()) {
+		widget.show(false);
 	}
 }
 
@@ -190,19 +187,23 @@ intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index,
 	switch (opcode) {
 	case audioMasterSizeWindow:
 		// index: width, value: height
-		if (editorWidget) {
-			editorWidget->handleResizeRequest(index, value);
-		}
+		widget.handleResizeRequest(index, value);
 		return 0;
 	}
 
 	return result;
 }
 
+void VSTPlugin::editorWidgetClosed(void *ptr)
+{
+	
+	reinterpret_cast<VSTPlugin *>(ptr)->closeEditor();
+}
+
 std::string VSTPlugin::getChunk()
 {
 	cbase64_encodestate encoder;
-	std::string encodedData;
+	std::string         encodedData;
 
 	cbase64_init_encodestate(&encoder);
 
@@ -211,16 +212,12 @@ std::string VSTPlugin::getChunk()
 	}
 
 	if (effect->flags & effFlagsProgramChunks) {
-		void *buf = nullptr;
+		void *   buf       = nullptr;
 		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
 
 		encodedData.resize(cbase64_calc_encoded_length(chunkSize));
 
-		int blockEnd = 
-		cbase64_encode_block(
-			(const unsigned char*)buf, 
-			chunkSize, &encodedData[0], 
-			&encoder);
+		int blockEnd = cbase64_encode_block((const unsigned char *)buf, chunkSize, &encodedData[0], &encoder);
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
 
@@ -233,15 +230,11 @@ std::string VSTPlugin::getChunk()
 		}
 
 		const char *bytes = reinterpret_cast<const char *>(&params[0]);
-		size_t size = sizeof(float) * params.size();
+		size_t      size  = sizeof(float) * params.size();
 
 		encodedData.resize(cbase64_calc_encoded_length(size));
 
-		int blockEnd = 
-		cbase64_encode_block(
-			(const unsigned char*)bytes, 
-			size, &encodedData[0], 
-			&encoder);
+		int blockEnd = cbase64_encode_block((const unsigned char *)bytes, size, &encodedData[0], &encoder);
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
 		return encodedData;
@@ -255,7 +248,7 @@ void VSTPlugin::setChunk(std::string data)
 	std::string decodedData;
 
 	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
-	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
+	cbase64_decode_block(data.data(), data.size(), (unsigned char *)&decodedData[0], &decoder);
 
 	if (!effect) {
 		return;

@@ -21,12 +21,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <util/platform.h>
 #include <windows.h>
 
-AEffect *VSTPlugin::loadEffect()
+AEffect *VSTPlugin::loadLibrary()
 {
 	AEffect *plugin = nullptr;
 
 	wchar_t *wpath;
-	os_utf8_to_wcs_ptr(pluginPath.c_str(), 0, &wpath);
+	os_utf8_to_wcs_ptr(libraryPath.c_str(), 0, &wpath);
 	dllHandle = LoadLibraryW(wpath);
 	bfree(wpath);
 	if (dllHandle == nullptr) {
@@ -42,7 +42,7 @@ AEffect *VSTPlugin::loadEffect()
 			blog(LOG_WARNING,
 			     "Failed trying to load VST from '%s'"
 			     ", error %d\n",
-			     pluginPath.c_str(),
+			     libraryPath.c_str(),
 			     GetLastError());
 		}
 		return nullptr;
