@@ -18,6 +18,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "headers/EditorWidget.h"
 
-EditorWidget::EditorWidget(VSTPlugin *plugin) : plugin(plugin)
-{
+bool EditorWidget::hasContent() {
+	return haveContent;
+}
+
+bool EditorWidget::isVisible() {
+	return is_visible;
+}
+
+void EditorWidget::setWindowCloseCallback(editorwidget_close_cb_t cb, void *data) {
+	this->cb = cb;
+	this->cb_data = data;
+}
+
+void EditorWidget::callWindowCloseCallback() {
+	if (cb) {
+		cb(cb_data);
+	}
 }

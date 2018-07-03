@@ -32,28 +32,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
-class EditorWidget;
-
 class VSTPlugin {
-	AEffect *     effect = nullptr;
 	obs_source_t *sourceContext;
+
+	std::string  libraryPath;
+	EditorWidget widget;
+	AEffect *    effect = nullptr;
+	float **     inputs;
+	float **     outputs;
+	bool         effectReady = false;
+	std::string  sourceName;
+	std::string  filterName;
+	char         effectName[64];
+	char         vendorString[64];
 	std::string   pluginPath;
-
-	float **inputs;
-	float **outputs;
-
-	EditorWidget *editorWidget = nullptr;
-
-	AEffect *loadEffect();
-
-	bool effectReady = false;
-
-	std::string   sourceName;
-	std::string   filterName;
-	char effectName[64];
-	// Remove below... or comment out
-	char vendorString[64];
-
 
 #ifdef __APPLE__
 	CFBundleRef bundle = NULL;
@@ -62,8 +54,8 @@ class VSTPlugin {
 #elif __linux__
 	void *soHandle = nullptr;
 #endif
-
-	void unloadLibrary();
+	AEffect *loadLibrary();
+	void     unloadLibrary();
 
 	static intptr_t
 	hostCallback_static(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
@@ -84,21 +76,23 @@ class VSTPlugin {
 
 	intptr_t hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt);
 
+	static void editorWidgetClosed(void *ptr);
+
 public:
 	VSTPlugin(obs_source_t *sourceContext);
 	~VSTPlugin();
-	void        loadEffectFromPath(std::string path);
-	void        unloadEffect();
-	bool        isEditorOpen();
-	void        openEditor();
-	void        closeEditor();
-	std::string getChunk();
-	void        setChunk(std::string data);
-	void        setProgram(const int programNumber);
-	int         getProgram();
-	void        getSourceNames();
+	void            loadEffectFromPath(std::string path);
+	void            unloadEffect();
+	bool            isEditorOpen();
+	void            openEditor();
+	void            closeEditor();
+	std::string     getChunk();
+	void            setChunk(std::string data);
+	void            setProgram(const int programNumber);
+	int             getProgram();
+	void            getSourceNames();
 	obs_audio_data *process(struct obs_audio_data *audio);
-	bool        openInterfaceWhenActive = false;
+	bool            openInterfaceWhenActive = false;
 };
 
 #endif // OBS_STUDIO_VSTPLUGIN_H
