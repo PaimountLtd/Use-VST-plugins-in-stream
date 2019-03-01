@@ -27,6 +27,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "aeffectx.h"
 #include "VSTPlugin.h"
+#include <thread>
+
+enum WM_USER_MSG {
+	WM_USER_SET_TITLE = WM_USER + 0,
+};
 
 class VSTPlugin;
 
@@ -42,7 +47,8 @@ public:
 class EditorWidget {
 
 	VSTPlugin *plugin;
-
+	std::thread windowWorker;
+	AEffect *   m_effect;
 #ifdef __APPLE__
 #elif WIN32
 	HWND m_hwnd;
@@ -57,6 +63,10 @@ public:
 	void close();
 	void buildEffectContainer(AEffect *effect);
 	void handleResizeRequest(int width, int height);
+
+	void buildEffectContainer_worker();
+
+	void send_setWindowTitle(const char *title);
 };
 
 #endif // OBS_STUDIO_EDITORDIALOG_H

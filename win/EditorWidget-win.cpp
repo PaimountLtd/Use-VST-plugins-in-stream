@@ -36,6 +36,11 @@ LRESULT WINAPI EffectWindowProc(
 
 void EditorWidget::buildEffectContainer(AEffect *effect)
 {
+	m_effect     = effect;
+	windowWorker = std::thread(std::bind(&EditorWidget::buildEffectContainer_worker, this));
+}
+
+void EditorWidget::buildEffectContainer_worker() {
 	WNDCLASSEXW wcex{sizeof(wcex)};
 
 	wcex.lpfnWndProc   = EffectWindowProc;
@@ -43,45 +48,42 @@ void EditorWidget::buildEffectContainer(AEffect *effect)
 	wcex.lpszClassName = L"Minimal VST host - Guest VST Window Frame";
 	RegisterClassExW(&wcex);
 
-	LONG style = 
-		WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_DLGFRAME 
-		| WS_POPUP | WS_SYSMENU | WS_CAPTION | WS_MINIMIZEBOX;
-		
+	LONG style =
+	        WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_DLGFRAME | WS_POPUP | WS_SYSMENU | WS_CAPTION | WS_MINIMIZEBOX;
+
 	LONG exStyle = WS_EX_DLGMODALFRAME;
 
 	VstRect *vstRect = nullptr;
 
-	m_hwnd = 
-	CreateWindowEx(exStyle, wcex.lpszClassName, TEXT(""), style, 
-		0, 0, 0, 0, 
-		nullptr, nullptr, nullptr, nullptr);
+	m_hwnd = CreateWindowEx(
+	        exStyle, wcex.lpszClassName, TEXT(""), style, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
 
-	effect->dispatcher(effect, effEditOpen, 0, 0, m_hwnd, 0);
-	effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
+	m_effect->dispatcher(m_effect, effEditOpen, 0, 0, m_hwnd, 0);
+	m_effect->dispatcher(m_effect, effEditGetRect, 0, 0, &vstRect, 0);
 
 	show();
 	SetWindowPos(m_hwnd, 0, vstRect->left, vstRect->top, vstRect->right, vstRect->bottom, 0);
 
-	RECT rect = { 0 };
-	RECT border = { 0 };
-	
+	RECT rect   = {0};
+	RECT border = {0};
+
 	if (vstRect) {
-		RECT clientRect; 
+		RECT clientRect;
 
 		GetWindowRect(m_hwnd, &rect);
 		GetClientRect(m_hwnd, &clientRect);
-		
-		border.left = clientRect.left - rect.left;
+
+		border.left  = clientRect.left - rect.left;
 		border.right = rect.right - clientRect.right;
 
-		border.top = clientRect.top - rect.top;
+		border.top    = clientRect.top - rect.top;
 		border.bottom = rect.bottom - clientRect.bottom;
 	}
 
-	/* Despite the use of AdjustWindowRectEx here, the docs lie to us 
+	/* Despite the use of AdjustWindowRectEx here, the docs lie to us
 	   when they say it will give us the smallest size to accomodate the
 	   client area wanted. Since Vista came out, we now have to take into
-	   account hidden borders introduced by DWM. This can only be done 
+	   account hidden borders introduced by DWM. This can only be done
 	   *after* we've created the window as well. */
 	rect.left -= border.left;
 	rect.top -= border.top;
@@ -92,6 +94,22 @@ void EditorWidget::buildEffectContainer(AEffect *effect)
 	SetWindowPos(m_hwnd, 0, 0, 0, 0, 0, SWP_NOSIZE);
 
 	SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)plugin);
+
+	MSG   msg;
+	DWORD bRet;
+	PeekMessage(&msg, m_hwnd, WM_USER, WM_USER, PM_NOREMOVE);
+
+	bool shutdown = false;
+	while (!shutdown) {
+		if ((bRet = GetMessage(&msg, NULL, 0, 0)) == 0) {
+			continue;
+		}
+		if (bRet == -1) {
+			break;
+		}
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
 }
 
 void EditorWidget::setWindowTitle(const char *title)
@@ -99,6 +117,12 @@ void EditorWidget::setWindowTitle(const char *title)
 	TCHAR wstrTitle[256];
 	MultiByteToWideChar(CP_UTF8, 0, title, -1, &wstrTitle[0], 256);
 	SetWindowText(m_hwnd, &wstrTitle[0]);
+}
+
+void EditorWidget::send_setWindowTitle(const char *title)
+{
+	PostThreadMessage(
+	        GetThreadId(windowWorker.native_handle()), WM_USER_SET_TITLE, reinterpret_cast<WPARAM>(title), 0);
 }
 
 void EditorWidget::close()
