@@ -185,14 +185,8 @@ void VSTPlugin::closeEditor()
 
 	if (editorWidget) {
 		editorWidget->send_close();
-
-		editorWidget->send_shutdown();
-
-		if (editorWidget->windowWorker.joinable())
-			editorWidget->windowWorker.join();
-
-		delete editorWidget;
-		editorWidget = nullptr;
+		//delete editorWidget;
+		//editorWidget = nullptr;
 	}
 }
 

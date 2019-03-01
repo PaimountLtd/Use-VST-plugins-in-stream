@@ -28,12 +28,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "aeffectx.h"
 #include "VSTPlugin.h"
 #include <thread>
+#include <mutex>
+#include <condition_variable>
+
+struct sync_data {
+	std::mutex              mtx;
+	std::condition_variable cv;
+	bool                    ran = false;
+};
 
 enum WM_USER_MSG {
 	WM_USER_SET_TITLE = WM_USER + 0,
 	WM_USER_SHOW,
-	WM_USER_CLOSE,
-	WM_USER_SHUTDOWN
+	WM_USER_CLOSE
 };
 
 class VSTPlugin;
@@ -59,9 +66,12 @@ class EditorWidget {
 #endif
 
 public:
-	std::thread windowWorker;
+	std::thread             windowWorker;
+	std::mutex              mtx;
+	std::condition_variable cv;
 
 	EditorWidget(VSTPlugin *plugin);
+	virtual ~EditorWidget();
 	void setWindowTitle(const char *title);
 	void show();
 	void close();
@@ -72,7 +82,6 @@ public:
 	void send_setWindowTitle(const char *title);
 	void send_show();
 	void send_close();
-	void send_shutdown();
 };
 
 #endif // OBS_STUDIO_EDITORDIALOG_H

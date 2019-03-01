@@ -30,6 +30,12 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
+EditorWidget::~EditorWidget()
+{
+	if (windowWorker.joinable())
+		windowWorker.join();
+}	
+
 void EditorWidget::buildEffectContainer(AEffect *effect)
 {
 	m_effect     = effect;
@@ -93,40 +99,32 @@ void EditorWidget::buildEffectContainer_worker()
 	SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)plugin);
 
 	MSG   msg;
-	DWORD bRet;
-	PeekMessage(&msg, m_hwnd, WM_USER, WM_USER, PM_NOREMOVE);
+	BOOL bRet;
 
 	bool shutdown = false;
-	while (!shutdown) {
-		if ((bRet = GetMessage(&msg, NULL, 0, 0)) == 0) {
-			continue;
-		}
+	while ((bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
+	{
 		if (bRet == -1) {
 			break;
+		} else {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+
+			if (msg.message == WM_USER_SET_TITLE) {
+				const char *title = reinterpret_cast<const char *>(msg.wParam);
+				setWindowTitle(title);
+			} else if (msg.message == WM_USER_SHOW) {
+				show();
+			} else if (msg.message == WM_USER_CLOSE) {
+				sync_data *                  sd = reinterpret_cast<sync_data *>(msg.wParam);
+				std::unique_lock<std::mutex> lk(sd->mtx);
+				close();
+				shutdown = true;
+				sd->ran  = true;
+				sd->cv.notify_all();
+			}
 		}
 
-		switch (msg.message) {
-		case WM_USER_SET_TITLE: {
-			const char *title = reinterpret_cast<const char *>(msg.wParam);
-			setWindowTitle(title);
-			break;
-		}
-		case WM_USER_SHOW: {
-			show();
-			break;
-		}
-		case WM_USER_CLOSE: {
-			close();
-			break;
-		}
-		case WM_USER_SHUTDOWN: {
-			shutdown = true;
-			break;
-		}
-		}
-
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
 	}
 	return;
 }
@@ -152,7 +150,11 @@ void EditorWidget::close()
 
 void EditorWidget::send_close()
 {
-	PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE, 0, 0);
+	sync_data                    sd;
+	std::unique_lock<std::mutex> lk(sd.mtx);
+	//PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE, reinterpret_cast<WPARAM>(&sd), 0);
+	PostMessage(m_hwnd, WM_USER_CLOSE, reinterpret_cast<WPARAM>(&sd), 0);
+	sd.cv.wait(lk, [&sd]() { return sd.ran; });
 }
 
 void EditorWidget::show()
@@ -165,9 +167,3 @@ void EditorWidget::send_show()
 	PostThreadMessage(
 	        GetThreadId(windowWorker.native_handle()), WM_USER_SHOW, 0, 0);
 }
-
-void EditorWidget::send_shutdown()
-{
-	PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_SHUTDOWN, 0, 0);
-}
-
