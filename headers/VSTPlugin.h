@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "aeffectx.h"
 #include "vst-plugin-callbacks.hpp"
 #include "EditorWidget.h"
+#include <thread>
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
@@ -48,12 +49,11 @@ class VSTPlugin {
 
 	bool effectReady = false;
 
-	std::string   sourceName;
-	std::string   filterName;
-	char effectName[64];
+	std::string sourceName;
+	std::string filterName;
+	char        effectName[64];
 	// Remove below... or comment out
 	char vendorString[64];
-
 
 #ifdef __APPLE__
 	CFBundleRef bundle = NULL;
@@ -87,18 +87,21 @@ class VSTPlugin {
 public:
 	VSTPlugin(obs_source_t *sourceContext);
 	~VSTPlugin();
-	void        loadEffectFromPath(std::string path);
-	void        unloadEffect();
-	bool        isEditorOpen();
-	void        openEditor();
-	void        closeEditor();
-	std::string getChunk();
-	void        setChunk(std::string data);
-	void        setProgram(const int programNumber);
-	int         getProgram();
-	void        getSourceNames();
+	std::thread deleteWorker;
+
+	void            loadEffectFromPath(std::string path);
+	void            unloadEffect();
+	bool            isEditorOpen();
+	void            openEditor();
+	void            removeEditor();
+	void            closeEditor();
+	std::string     getChunk();
+	void            setChunk(std::string data);
+	void            setProgram(const int programNumber);
+	int             getProgram();
+	void            getSourceNames();
 	obs_audio_data *process(struct obs_audio_data *audio);
-	bool        openInterfaceWhenActive = false;
+	bool            openInterfaceWhenActive = false;
 };
 
 #endif // OBS_STUDIO_VSTPLUGIN_H

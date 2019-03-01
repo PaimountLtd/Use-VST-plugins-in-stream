@@ -25,6 +25,8 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 	switch (uMsg) {
 	case WM_CLOSE:
 		plugin->closeEditor();
+
+		DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
@@ -32,8 +34,6 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 EditorWidget::~EditorWidget()
 {
-	if (windowWorker.joinable())
-		windowWorker.join();
 }	
 
 void EditorWidget::buildEffectContainer(AEffect *effect)
@@ -102,27 +102,26 @@ void EditorWidget::buildEffectContainer_worker()
 	BOOL bRet;
 
 	bool shutdown = false;
-	while ((bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
+	while (!shutdown && (bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
 	{
 		if (bRet == -1) {
 			break;
 		} else {
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-
 			if (msg.message == WM_USER_SET_TITLE) {
+				sync_data *                  sd = reinterpret_cast<sync_data *>(msg.lParam);
+				std::unique_lock<std::mutex> lk(sd->mtx);
 				const char *title = reinterpret_cast<const char *>(msg.wParam);
 				setWindowTitle(title);
+				sd->ran = true;
+				sd->cv.notify_all();
 			} else if (msg.message == WM_USER_SHOW) {
 				show();
 			} else if (msg.message == WM_USER_CLOSE) {
-				sync_data *                  sd = reinterpret_cast<sync_data *>(msg.wParam);
-				std::unique_lock<std::mutex> lk(sd->mtx);
 				close();
 				shutdown = true;
-				sd->ran  = true;
-				sd->cv.notify_all();
 			}
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
 		}
 
 	}
@@ -138,8 +137,15 @@ void EditorWidget::setWindowTitle(const char *title)
 
 void EditorWidget::send_setWindowTitle(const char *title)
 {
-	PostThreadMessage(
-	        GetThreadId(windowWorker.native_handle()), WM_USER_SET_TITLE, reinterpret_cast<WPARAM>(title), 0);
+	blog(LOG_DEBUG, "send_setWindowTitle");
+	sync_data                    sd;
+	std::unique_lock<std::mutex> lk(sd.mtx);
+	PostThreadMessage(GetThreadId(windowWorker.native_handle()),
+			  WM_USER_SET_TITLE,
+	                  reinterpret_cast<WPARAM>(title),
+	                  reinterpret_cast<WPARAM>(&sd));
+	sd.cv.wait(lk, [&sd]() { return sd.ran; });
+	blog(LOG_DEBUG, "send_setWindowTitle succeed");
 }
 
 void EditorWidget::close()
@@ -150,11 +156,8 @@ void EditorWidget::close()
 
 void EditorWidget::send_close()
 {
-	sync_data                    sd;
-	std::unique_lock<std::mutex> lk(sd.mtx);
-	//PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE, reinterpret_cast<WPARAM>(&sd), 0);
-	PostMessage(m_hwnd, WM_USER_CLOSE, reinterpret_cast<WPARAM>(&sd), 0);
-	sd.cv.wait(lk, [&sd]() { return sd.ran; });
+	sync_data sd;
+	PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE, 0, reinterpret_cast<WPARAM>(&sd));
 }
 
 void EditorWidget::show()
@@ -164,6 +167,6 @@ void EditorWidget::show()
 
 void EditorWidget::send_show()
 {
-	PostThreadMessage(
-	        GetThreadId(windowWorker.native_handle()), WM_USER_SHOW, 0, 0);
+	PostThreadMessage(GetThreadId(windowWorker.native_handle()),
+		WM_USER_SHOW, 0, 0);
 }
