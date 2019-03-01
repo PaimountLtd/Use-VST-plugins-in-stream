@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define CBASE64_IMPLEMENTATION
 #include "cbase64.h"
+#include <cstringt.h>
 
 VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
 {
@@ -171,8 +172,8 @@ void VSTPlugin::openEditor()
 	if (effect && !editorWidget) {
 		editorWidget = new EditorWidget(this);
 		editorWidget->buildEffectContainer(effect);
-		editorWidget->setWindowTitle(effectName);
-		editorWidget->show();
+		editorWidget->send_setWindowTitle(effectName);
+		editorWidget->send_show();
 	}
 }
 
@@ -183,7 +184,13 @@ void VSTPlugin::closeEditor()
 	}
 
 	if (editorWidget) {
-		editorWidget->close();
+		editorWidget->send_close();
+
+		editorWidget->send_shutdown();
+
+		if (editorWidget->windowWorker.joinable())
+			editorWidget->windowWorker.join();
+
 		delete editorWidget;
 		editorWidget = nullptr;
 	}
@@ -213,10 +220,6 @@ intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index,
 
 	switch (opcode) {
 	case audioMasterSizeWindow:
-		// index: width, value: height
-		if (editorWidget) {
-			editorWidget->handleResizeRequest(index, value);
-		}
 		return 0;
 	}
 

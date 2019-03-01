@@ -18,16 +18,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <Dwmapi.h>
 #include "../headers/EditorWidget.h"
 
-LRESULT WINAPI EffectWindowProc(
-		HWND   hWnd,
-		UINT   uMsg,
-		WPARAM wParam,
-		LPARAM lParam)
+LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	VSTPlugin *plugin = (VSTPlugin*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+	VSTPlugin *plugin = (VSTPlugin *)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
 	switch (uMsg) {
-	case WM_CLOSE: 
+	case WM_CLOSE:
 		plugin->closeEditor();
 	}
 
@@ -40,7 +36,8 @@ void EditorWidget::buildEffectContainer(AEffect *effect)
 	windowWorker = std::thread(std::bind(&EditorWidget::buildEffectContainer_worker, this));
 }
 
-void EditorWidget::buildEffectContainer_worker() {
+void EditorWidget::buildEffectContainer_worker()
+{
 	WNDCLASSEXW wcex{sizeof(wcex)};
 
 	wcex.lpfnWndProc   = EffectWindowProc;
@@ -107,9 +104,31 @@ void EditorWidget::buildEffectContainer_worker() {
 		if (bRet == -1) {
 			break;
 		}
+
+		switch (msg.message) {
+		case WM_USER_SET_TITLE: {
+			const char *title = reinterpret_cast<const char *>(msg.wParam);
+			setWindowTitle(title);
+			break;
+		}
+		case WM_USER_SHOW: {
+			show();
+			break;
+		}
+		case WM_USER_CLOSE: {
+			close();
+			break;
+		}
+		case WM_USER_SHUTDOWN: {
+			shutdown = true;
+			break;
+		}
+		}
+
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+	return;
 }
 
 void EditorWidget::setWindowTitle(const char *title)
@@ -131,11 +150,24 @@ void EditorWidget::close()
 	m_hwnd = nullptr;
 }
 
+void EditorWidget::send_close()
+{
+	PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE, 0, 0);
+}
+
 void EditorWidget::show()
 {
 	ShowWindow(m_hwnd, SW_SHOW);
 }
 
-void EditorWidget::handleResizeRequest(int width, int height)
+void EditorWidget::send_show()
 {
+	PostThreadMessage(
+	        GetThreadId(windowWorker.native_handle()), WM_USER_SHOW, 0, 0);
 }
+
+void EditorWidget::send_shutdown()
+{
+	PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_SHUTDOWN, 0, 0);
+}
+
