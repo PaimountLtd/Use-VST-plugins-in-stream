@@ -27,7 +27,7 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 	switch (uMsg) {
 	case WM_CLOSE:
-		plugin->closeEditor(NULL);
+		plugin->closeEditor();
 	}
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);

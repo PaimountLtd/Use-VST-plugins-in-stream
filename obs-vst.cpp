@@ -41,7 +41,7 @@ static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
-	vstPlugin->openEditor();
+	vstPlugin->openEditor(props);
 
 	obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), false);
 	obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
@@ -57,7 +57,7 @@ static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t 
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
-	vstPlugin->closeEditor(props);
+	vstPlugin->closeEditor();
 
 	UNUSED_PARAMETER(property);
 
@@ -73,7 +73,7 @@ static const char *vst_name(void *unused)
 static void vst_destroy(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	vstPlugin->closeEditor(NULL);
+	vstPlugin->closeEditor();
 	delete vstPlugin;
 }
 
