@@ -180,6 +180,7 @@ void VSTPlugin::openEditor()
 void VSTPlugin::removeEditor() {
 	if (editorWidget->windowWorker.joinable())
 		editorWidget->windowWorker.join();
+
 	delete editorWidget;
 	editorWidget = nullptr;
 }
@@ -191,6 +192,7 @@ void VSTPlugin::closeEditor()
 	}
 
 	if (editorWidget) {
+		editorWidget->send_dispatcherClose();
 		editorWidget->send_close();
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 	}

@@ -40,6 +40,7 @@ struct sync_data {
 enum WM_USER_MSG {
 	WM_USER_SET_TITLE = WM_USER + 0,
 	WM_USER_SHOW,
+	WM_USER_CLOSE_DISPATCHER,
 	WM_USER_CLOSE
 };
 
@@ -67,13 +68,12 @@ class EditorWidget {
 
 public:
 	std::thread             windowWorker;
-	std::mutex              mtx;
-	std::condition_variable cv;
 
 	EditorWidget(VSTPlugin *plugin);
 	virtual ~EditorWidget();
 	void setWindowTitle(const char *title);
 	void show();
+	void dispatcherClose();
 	void close();
 	void buildEffectContainer(AEffect *effect);
 
@@ -81,6 +81,7 @@ public:
 
 	void send_setWindowTitle(const char *title);
 	void send_show();
+	void send_dispatcherClose();
 	void send_close();
 };
 
