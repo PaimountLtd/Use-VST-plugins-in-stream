@@ -28,6 +28,17 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 	switch (uMsg) {
 	case WM_CLOSE:
 		plugin->closeEditor();
+		obs_properties_t *props = obs_properties_create();
+		obs_property_t *  list  = obs_properties_add_list(props,
+                                                               "plugin_path",
+                                                               obs_module_text("VstPlugin"),
+                                                               OBS_COMBO_TYPE_LIST,
+                                                               OBS_COMBO_FORMAT_STRING);
+
+		if (props) {
+			obs_property_set_visible(obs_properties_get(props, "open_vst_settings"), true);
+			obs_property_set_visible(obs_properties_get(props, "close_vst_settings"), false);
+		}
 	}
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
