@@ -88,12 +88,11 @@ public:
 	VSTPlugin(obs_source_t *sourceContext);
 	~VSTPlugin();
 	std::thread* deleteWorker;
-	obs_properties_t *sp;
 
 	void            loadEffectFromPath(std::string path);
 	void            unloadEffect();
 	bool            isEditorOpen();
-	void            openEditor(obs_properties_t *props);
+	void            openEditor();
 	void            removeEditor();
 	void            closeEditor();
 	std::string     getChunk();

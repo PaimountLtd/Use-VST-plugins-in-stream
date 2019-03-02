@@ -105,7 +105,7 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 		effectReady = true;
 
 		if (openInterfaceWhenActive) {
-			openEditor(obs_source_properties(sourceContext));
+			openEditor();
 		}
 	}
 }
@@ -167,14 +167,13 @@ bool VSTPlugin::isEditorOpen()
 	return !!editorWidget;
 }
 
-void VSTPlugin::openEditor(obs_properties_t *props)
+void VSTPlugin::openEditor()
 {
 	if (effect && !editorWidget) {
 		editorWidget = new EditorWidget(this);
 		editorWidget->buildEffectContainer(effect);
 		editorWidget->send_setWindowTitle(effectName);
 		editorWidget->send_show();
-		sp = props;
 	}
 }
 
@@ -192,18 +191,6 @@ void VSTPlugin::closeEditor()
 	}
 
 	if (editorWidget) {
-		obs_properties_t *props = obs_properties_create();
-		obs_property_t *  list  = obs_properties_add_list(props,
-                                                               "plugin_path",
-                                                               obs_module_text("VstPlugin"),
-                                                               OBS_COMBO_TYPE_LIST,
-                                                               OBS_COMBO_FORMAT_STRING);
-
-		if (props) {
-			obs_property_set_visible(obs_properties_get(props, "open_vst_settings"), true);
-			obs_property_set_visible(obs_properties_get(props, "close_vst_settings"), false);
-		}
-
 		editorWidget->send_close();
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 	}
