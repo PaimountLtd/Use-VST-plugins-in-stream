@@ -109,18 +109,13 @@ void EditorWidget::buildEffectContainer_worker()
 			break;
 		} else {
 			if (msg.message == WM_USER_SET_TITLE) {
-				sync_data *                  sd = reinterpret_cast<sync_data *>(msg.lParam);
-				std::unique_lock<std::mutex> lk(sd->mtx);
 				const char *title = reinterpret_cast<const char *>(msg.wParam);
 				setWindowTitle(title);
-				sd->ran = true;
-				sd->cv.notify_all();
 			} else if (msg.message == WM_USER_SHOW) {
 				show();
 			} else if (msg.message == WM_USER_CLOSE) {
 				close();
 				shutdown = true;
-				blog(LOG_DEBUG, "shutdown true");
 			}
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -139,15 +134,10 @@ void EditorWidget::setWindowTitle(const char *title)
 
 void EditorWidget::send_setWindowTitle(const char *title)
 {
-	blog(LOG_DEBUG, "send_setWindowTitle");
-	sync_data                    sd;
-	std::unique_lock<std::mutex> lk(sd.mtx);
 	PostThreadMessage(GetThreadId(windowWorker.native_handle()),
 			  WM_USER_SET_TITLE,
 	                  reinterpret_cast<WPARAM>(title),
-	                  reinterpret_cast<WPARAM>(&sd));
-	sd.cv.wait(lk, [&sd]() { return sd.ran; });
-	blog(LOG_DEBUG, "send_setWindowTitle succeed");
+	                  0);
 }
 
 void EditorWidget::close()
