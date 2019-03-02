@@ -57,10 +57,7 @@ static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t 
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
-	vstPlugin->closeEditor();
-
-	obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), true);
-	obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), false);
+	vstPlugin->closeEditor(props);
 
 	UNUSED_PARAMETER(property);
 
@@ -76,7 +73,7 @@ static const char *vst_name(void *unused)
 static void vst_destroy(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	vstPlugin->closeEditor();
+	vstPlugin->closeEditor(NULL);
 	delete vstPlugin;
 }
 

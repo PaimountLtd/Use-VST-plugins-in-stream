@@ -94,7 +94,7 @@ public:
 	bool            isEditorOpen();
 	void            openEditor();
 	void            removeEditor();
-	void            closeEditor();
+	void            closeEditor(obs_properties_t *props);
 	std::string     getChunk();
 	void            setChunk(std::string data);
 	void            setProgram(const int programNumber);

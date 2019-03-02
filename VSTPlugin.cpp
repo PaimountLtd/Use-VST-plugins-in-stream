@@ -65,7 +65,7 @@ VSTPlugin::~VSTPlugin()
 void VSTPlugin::loadEffectFromPath(std::string path)
 {
 	if (this->pluginPath.compare(path) != 0) {
-		closeEditor();
+		closeEditor(NULL);
 		unloadEffect();
 	}
 
@@ -184,7 +184,7 @@ void VSTPlugin::removeEditor() {
 	editorWidget = nullptr;
 }
 
-void VSTPlugin::closeEditor()
+void VSTPlugin::closeEditor(obs_properties_t *props)
 {
 	if (effect) {
 		effect->dispatcher(effect, effEditClose, 0, 0, nullptr, 0);
@@ -193,6 +193,11 @@ void VSTPlugin::closeEditor()
 	if (editorWidget) {
 		editorWidget->send_close();
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));;
+
+		if (props) {
+			obs_property_set_visible(obs_properties_get(props, "open_vst_settings"), true);
+			obs_property_set_visible(obs_properties_get(props, "close_vst_settings"), false);
+		}
 	}
 }
 
