@@ -87,7 +87,7 @@ class VSTPlugin {
 public:
 	VSTPlugin(obs_source_t *sourceContext);
 	~VSTPlugin();
-	std::thread deleteWorker;
+	std::thread* deleteWorker;
 
 	void            loadEffectFromPath(std::string path);
 	void            unloadEffect();

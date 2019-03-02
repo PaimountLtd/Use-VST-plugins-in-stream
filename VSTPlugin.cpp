@@ -178,8 +178,10 @@ void VSTPlugin::openEditor()
 }
 
 void VSTPlugin::removeEditor() {
+	blog(LOG_DEBUG, "waiting");
 	if (editorWidget->windowWorker.joinable())
 		editorWidget->windowWorker.join();
+	blog(LOG_DEBUG, "finish waiting");
 	delete editorWidget;
 	editorWidget = nullptr;
 	blog(LOG_DEBUG, "end delete worker");
@@ -192,8 +194,10 @@ void VSTPlugin::closeEditor()
 	}
 
 	if (editorWidget) {
-		deleteWorker = std::thread(std::bind(&VSTPlugin::removeEditor, this));;
+		blog(LOG_DEBUG, "send close");
 		editorWidget->send_close();
+		blog(LOG_DEBUG, "sent");
+		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));;
 	}
 }
 

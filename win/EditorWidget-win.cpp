@@ -20,13 +20,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	if (!hWnd)
+		return NULL;
+
 	VSTPlugin *plugin = (VSTPlugin *)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
 	switch (uMsg) {
 	case WM_CLOSE:
 		plugin->closeEditor();
-
-		DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
@@ -119,6 +120,7 @@ void EditorWidget::buildEffectContainer_worker()
 			} else if (msg.message == WM_USER_CLOSE) {
 				close();
 				shutdown = true;
+				blog(LOG_DEBUG, "shutdown true");
 			}
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
