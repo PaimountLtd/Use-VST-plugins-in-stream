@@ -64,6 +64,7 @@ class VSTPlugin {
 #endif
 
 	void unloadLibrary();
+	void waitDeleteWorker();
 
 	static intptr_t
 	hostCallback_static(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
@@ -87,7 +88,7 @@ class VSTPlugin {
 public:
 	VSTPlugin(obs_source_t *sourceContext);
 	~VSTPlugin();
-	std::thread* deleteWorker;
+	std::thread* deleteWorker = nullptr;
 
 	void            loadEffectFromPath(std::string path);
 	void            unloadEffect();

@@ -148,6 +148,17 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 	return audio;
 }
 
+void VSTPlugin::waitDeleteWorker()
+{
+	if (deleteWorker != nullptr) {
+		if (deleteWorker->joinable())
+			deleteWorker->join();
+
+		delete deleteWorker;
+		deleteWorker = nullptr;
+    }
+}
+
 void VSTPlugin::unloadEffect()
 {
 	effectReady = false;
@@ -158,6 +169,8 @@ void VSTPlugin::unloadEffect()
 	}
 
 	effect = nullptr;
+
+    waitDeleteWorker();
 
 	unloadLibrary();
 }
@@ -194,6 +207,10 @@ void VSTPlugin::closeEditor()
 	if (editorWidget) {
 		editorWidget->send_dispatcherClose();
 		editorWidget->send_close();
+
+        // Wait the last instance of the delete worker, if any
+		waitDeleteWorker();
+
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 	}
 }
