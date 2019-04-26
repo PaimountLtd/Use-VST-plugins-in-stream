@@ -156,11 +156,13 @@ void VSTPlugin::waitDeleteWorker()
 
 		delete deleteWorker;
 		deleteWorker = nullptr;
-    }
+	}
 }
 
 void VSTPlugin::unloadEffect()
 {
+	waitDeleteWorker();
+
 	effectReady = false;
 
 	if (effect) {
@@ -169,8 +171,6 @@ void VSTPlugin::unloadEffect()
 	}
 
 	effect = nullptr;
-
-    waitDeleteWorker();
 
 	unloadLibrary();
 }
@@ -200,6 +200,9 @@ void VSTPlugin::removeEditor() {
 
 void VSTPlugin::closeEditor()
 {
+	// Wait the last instance of the delete worker, if any
+	waitDeleteWorker();
+
 	if (effect) {
 		effect->dispatcher(effect, effEditClose, 0, 0, nullptr, 0);
 	}
@@ -207,9 +210,6 @@ void VSTPlugin::closeEditor()
 	if (editorWidget) {
 		editorWidget->send_dispatcherClose();
 		editorWidget->send_close();
-
-        // Wait the last instance of the delete worker, if any
-		waitDeleteWorker();
 
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 	}
