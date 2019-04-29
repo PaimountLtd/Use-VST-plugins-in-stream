@@ -114,9 +114,9 @@ void EditorWidget::buildEffectContainer_worker()
 			} else if (msg.message == WM_USER_SHOW) {
 				show();
 			} else if (msg.message == WM_USER_CLOSE_DISPATCHER) {
-				dispatcherClose();
 			} else if (msg.message == WM_USER_CLOSE) {
 				close();
+				dispatcherClose();
 				shutdown = true;
 			}
 			TranslateMessage(&msg);

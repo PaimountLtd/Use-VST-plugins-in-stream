@@ -209,7 +209,7 @@ void VSTPlugin::closeEditor()
 
 	if (editorWidget) {
 		editorWidget->send_close();
-		editorWidget->send_dispatcherClose();
+		// editorWidget->send_dispatcherClose();
 
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 	}
