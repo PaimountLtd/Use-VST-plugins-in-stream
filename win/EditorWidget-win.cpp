@@ -113,7 +113,6 @@ void EditorWidget::buildEffectContainer_worker()
 				setWindowTitle(title);
 			} else if (msg.message == WM_USER_SHOW) {
 				show();
-			} else if (msg.message == WM_USER_CLOSE_DISPATCHER) {
 			} else if (msg.message == WM_USER_CLOSE) {
 				close();
 				dispatcherClose();
@@ -170,9 +169,4 @@ void EditorWidget::dispatcherClose()
 	if (m_effect) {
 		m_effect->dispatcher(m_effect, effEditClose, 0, 0, nullptr, 0);
 	}
-}
-
-void EditorWidget::send_dispatcherClose()
-{
-	PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE_DISPATCHER, 0, 0);
 }

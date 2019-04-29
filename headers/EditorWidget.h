@@ -40,7 +40,6 @@ struct sync_data {
 enum WM_USER_MSG {
 	WM_USER_SET_TITLE = WM_USER + 0,
 	WM_USER_SHOW,
-	WM_USER_CLOSE_DISPATCHER,
 	WM_USER_CLOSE
 };
 
@@ -81,7 +80,6 @@ public:
 
 	void send_setWindowTitle(const char *title);
 	void send_show();
-	void send_dispatcherClose();
 	void send_close();
 };
 

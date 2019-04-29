@@ -203,14 +203,8 @@ void VSTPlugin::closeEditor()
 	// Wait the last instance of the delete worker, if any
 	waitDeleteWorker();
 
-	if (effect) {
-		// effect->dispatcher(effect, effEditClose, 0, 0, nullptr, 0);
-	}
-
 	if (editorWidget) {
 		editorWidget->send_close();
-		// editorWidget->send_dispatcherClose();
-
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 	}
 }
