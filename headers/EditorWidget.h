@@ -66,7 +66,7 @@ class EditorWidget {
 #endif
 
 public:
-	std::thread             windowWorker;
+	std::thread windowWorker;
 
 	EditorWidget(VSTPlugin *plugin);
 	virtual ~EditorWidget();
