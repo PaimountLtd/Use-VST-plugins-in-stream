@@ -86,9 +86,6 @@ static void vst_update(void *data, obs_data_t *settings)
 
 	if (vstPlugin->openInterfaceWhenActive) {
 		vstPlugin->closeEditor();
-
-		obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), true);
-		obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), false);
 	}
 
 	vstPlugin->openInterfaceWhenActive = obs_data_get_bool(settings, OPEN_WHEN_ACTIVE_VST_SETTINGS);
@@ -99,12 +96,6 @@ static void vst_update(void *data, obs_data_t *settings)
 		return;
 	}
 	vstPlugin->loadEffectFromPath(std::string(path));
-
-	if (vstPlugin->openInterfaceWhenActive) {
-
-		obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), false);
-		obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
-	}
 
 	const char *chunkData = obs_data_get_string(settings, "chunk_data");
 	if (chunkData && strlen(chunkData) > 0) {
