@@ -207,9 +207,6 @@ void VSTPlugin::closeEditor()
 		editorWidget->send_close();
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 	}
-
-	// Wait the last instance of the delete worker, if any
-	waitDeleteWorker();
 }
 
 intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
