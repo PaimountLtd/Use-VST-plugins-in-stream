@@ -35,6 +35,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 class EditorWidget;
 
+#define EffectNameLength 64
+
 class VSTPlugin {
 	AEffect *     effect = nullptr;
 	obs_source_t *sourceContext;
@@ -51,7 +53,7 @@ class VSTPlugin {
 
 	std::string sourceName;
 	std::string filterName;
-	char        effectName[64];
+	char        effectName[EffectNameLength];
 	// Remove below... or comment out
 	char vendorString[64];
 

@@ -129,6 +129,12 @@ void EditorWidget::buildEffectContainer_worker()
 void EditorWidget::setWindowTitle(const char *title)
 {
 	TCHAR wstrTitle[256];
+
+	// Check for invalid strings
+	if (!title || MultiByteToWideChar(CP_UTF8, 0, title, -1, &wstrTitle[0], 0) > 255) {
+		return;
+	}
+
 	MultiByteToWideChar(CP_UTF8, 0, title, -1, &wstrTitle[0], 256);
 	SetWindowText(m_hwnd, &wstrTitle[0]);
 }

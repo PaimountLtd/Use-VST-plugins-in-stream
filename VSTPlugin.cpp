@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
 {
+	memset(effectName, 0, sizeof(char) * EffectNameLength);
 
 	int numChannels = VST_MAX_CHANNELS;
 	int blocksize   = BLOCK_SIZE;
@@ -93,6 +94,10 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 		effect->dispatcher(effect, effGetVendorString, 0, 0, vendorString, 0);
 
 		effect->dispatcher(effect, effOpen, 0, 0, nullptr, 0.0f);
+
+		// Fix sometimes receiving an invalid name from the plugin, makes sure
+		// there is a terminator character
+		effectName[EffectNameLength - 1] = 0;
 
 		// Set some default properties
 		size_t sampleRate = audio_output_get_sample_rate(obs_get_audio());
