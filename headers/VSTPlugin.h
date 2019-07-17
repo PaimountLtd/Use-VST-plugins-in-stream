@@ -103,6 +103,7 @@ public:
 	void            getSourceNames();
 	obs_audio_data *process(struct obs_audio_data *audio);
 	bool            openInterfaceWhenActive = false;
+	std::string     getPluginPath();
 };
 
 #endif // OBS_STUDIO_VSTPLUGIN_H

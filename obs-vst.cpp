@@ -37,6 +37,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-vst", "en-US")
 
+bool isUpdateFromCreate = false;
+
 static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
@@ -91,7 +93,13 @@ static void vst_update(void *data, obs_data_t *settings)
 	if (strcmp(path, "") == 0) {
 		return;
 	}
-	vstPlugin->loadEffectFromPath(std::string(path));
+
+	// Load VST plugin only when creating the filter or when changing plugin
+	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || isUpdateFromCreate) {
+		vstPlugin->loadEffectFromPath(std::string(path));
+
+		isUpdateFromCreate = false;
+	}
 
 	const char *chunkData = obs_data_get_string(settings, "chunk_data");
 	if (chunkData && strlen(chunkData) > 0) {
@@ -101,6 +109,8 @@ static void vst_update(void *data, obs_data_t *settings)
 
 static void *vst_create(obs_data_t *settings, obs_source_t *filter)
 {
+	isUpdateFromCreate = true;
+
 	VSTPlugin *vstPlugin = new VSTPlugin(filter);
 	vst_update(vstPlugin, settings);
 

@@ -341,3 +341,8 @@ void VSTPlugin::getSourceNames()
 	sourceName = obs_source_get_name(obs_filter_get_target(sourceContext));
 	filterName = obs_source_get_name(sourceContext);
 }
+
+std::string VSTPlugin::getPluginPath()
+{
+	return pluginPath;
+}
