@@ -37,7 +37,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-vst", "en-US")
 
-bool isUpdateFromCreate = false;
+bool isUpdateFromCreate      = false;
+bool isUpdateFromCloseEditor = false;
 
 static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
@@ -57,6 +58,8 @@ static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *
 
 static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
+	isUpdateFromCloseEditor = true;
+
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
 	vstPlugin->closeEditor();
@@ -98,12 +101,21 @@ static void vst_update(void *data, obs_data_t *settings)
 	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || isUpdateFromCreate) {
 		vstPlugin->loadEffectFromPath(std::string(path));
 
-		isUpdateFromCreate = false;
+		// Load chunk only when creating the filter
+		if (isUpdateFromCreate) {
+			const char *chunkData = obs_data_get_string(settings, "chunk_data");
+			if (chunkData && strlen(chunkData) > 0) {
+				vstPlugin->setChunk(std::string(chunkData));
+			}
+
+			isUpdateFromCreate = false;
+		}
 	}
 
-	const char *chunkData = obs_data_get_string(settings, "chunk_data");
-	if (chunkData && strlen(chunkData) > 0) {
-		vstPlugin->setChunk(std::string(chunkData));
+	// Save chunk only after closing the editor
+	if (isUpdateFromCloseEditor) {
+		obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
+		isUpdateFromCloseEditor = false;
 	}
 }
 
