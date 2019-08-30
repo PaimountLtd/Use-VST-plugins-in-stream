@@ -198,18 +198,18 @@ void VSTPlugin::removeEditor() {
 	editorWidget = nullptr;
 }
 
-void VSTPlugin::closeEditor(bool waitThread)
+void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 {
-	// Wait the last instance of the delete worker, if any
-	waitDeleteWorker();
+	if (isEditorOpen()) {
+		// Wait the last instance of the delete worker, if any
+		waitDeleteWorker();
 
-	if (editorWidget) {
 		editorWidget->send_close();
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
-	}
 
-	if (waitThread) {
-		waitDeleteWorker();
+		if (waitDeleteWorkerOnShutdown) {
+			waitDeleteWorker();
+		}
 	}
 }
 

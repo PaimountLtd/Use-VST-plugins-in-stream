@@ -95,7 +95,7 @@ public:
 	bool            isEditorOpen();
 	void            openEditor();
 	void            removeEditor();
-	void            closeEditor(bool waitThread = false);
+	void            closeEditor(bool waitDeleteWorkerOnShutdown = false);
 	std::string     getChunk();
 	void            setChunk(std::string data);
 	void            setProgram(const int programNumber);
