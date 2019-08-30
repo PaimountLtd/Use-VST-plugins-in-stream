@@ -81,7 +81,14 @@ static const char *vst_name(void *unused)
 static void vst_destroy(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	vstPlugin->closeEditor();
+
+	// If editor is still open, wait delete worker thread finish
+	if (vstPlugin->isEditorOpen()) {
+		vstPlugin->closeEditor(true);
+	} else {
+		vstPlugin->closeEditor();
+	}
+	
 	delete vstPlugin;
 }
 
