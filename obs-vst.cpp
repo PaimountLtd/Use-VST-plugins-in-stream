@@ -81,7 +81,7 @@ static const char *vst_name(void *unused)
 static void vst_destroy(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	vstPlugin->closeEditor();
+	vstPlugin->closeEditor(true);
 	delete vstPlugin;
 }
 
