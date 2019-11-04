@@ -109,6 +109,9 @@ static void vst_update(void *data, obs_data_t *settings)
 			}
 
 			isUpdateFromCreate = false;
+		} else {
+			// If VST plugin was loaded after choosing a new one, reset chunk
+			obs_data_set_string(settings, "chunk_data", "");
 		}
 	}
 
