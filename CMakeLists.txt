@@ -65,6 +65,8 @@ add_library(obs-vst MODULE
 target_link_libraries(obs-vst
 	libobs)
 
+set_target_properties(obs-vst PROPERTIES FOLDER "plugins")
+
 if(APPLE)
 	target_link_libraries(obs-vst
 		${COCOA_FRAMEWORK}
