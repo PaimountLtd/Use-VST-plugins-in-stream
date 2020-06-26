@@ -123,10 +123,10 @@ void silenceChannel(float **channelData, int numChannels, long numFrames)
 obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 {
 	if (effect && effectReady) {
-		uint passes = (audio->frames + BLOCK_SIZE - 1) / BLOCK_SIZE;
-		uint extra  = audio->frames % BLOCK_SIZE;
-		for (uint pass = 0; pass < passes; pass++) {
-			uint frames = pass == passes - 1 && extra ? extra : BLOCK_SIZE;
+		uint32_t passes = (audio->frames + BLOCK_SIZE - 1) / BLOCK_SIZE;
+		uint32_t extra  = audio->frames % BLOCK_SIZE;
+		for (uint32_t pass = 0; pass < passes; pass++) {
+			uint32_t frames = pass == passes - 1 && extra ? extra : BLOCK_SIZE;
 			silenceChannel(outputs, VST_MAX_CHANNELS, BLOCK_SIZE);
 
 			float *adata[VST_MAX_CHANNELS];
