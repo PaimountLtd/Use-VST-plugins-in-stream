@@ -37,6 +37,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-vst", "en-US")
+MODULE_EXPORT const char *obs_module_description(void)
+{
+	return "VST 2.x Plug-in filter";
+}
 
 bool isUpdateFromCreate      = false;
 bool isUpdateFromCloseEditor = false;
