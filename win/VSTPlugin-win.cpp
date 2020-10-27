@@ -25,9 +25,18 @@ AEffect *VSTPlugin::loadEffect()
 {
 	AEffect *plugin = nullptr;
 
+	std::string dir = pluginPath;
+	while (dir.back() != '/')
+		dir.pop_back();
+
 	wchar_t *wpath;
 	os_utf8_to_wcs_ptr(pluginPath.c_str(), 0, &wpath);
+	wchar_t *wdir;
+	os_utf8_to_wcs_ptr(dir.c_str(), 0, &wdir);
+
+	SetDllDirectory(wdir);
 	dllHandle = LoadLibraryW(wpath);
+	SetDllDirectory(NULL);
 	bfree(wpath);
 	if (dllHandle == nullptr) {
 
