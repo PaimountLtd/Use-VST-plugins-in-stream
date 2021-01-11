@@ -74,6 +74,12 @@ AEffect *VSTPlugin::loadEffect()
 
 	// Instantiate the plug-in
 	plugin       = mainEntryPoint(hostCallback_static);
+	if (plugin == nullptr) {
+		blog(LOG_WARNING, "Failed to get filter object from a plugin");
+		unloadLibrary();
+		return nullptr;
+	}
+
 	plugin->user = this;
 	return plugin;
 }
