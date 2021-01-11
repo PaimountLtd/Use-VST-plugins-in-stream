@@ -38,6 +38,7 @@ AEffect *VSTPlugin::loadEffect()
 	dllHandle = LoadLibraryW(wpath);
 	SetDllDirectory(NULL);
 	bfree(wpath);
+	bfree(wdir);
 	if (dllHandle == nullptr) {
 
 		DWORD errorCode = GetLastError();
