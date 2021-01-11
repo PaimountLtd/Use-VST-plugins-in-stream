@@ -69,6 +69,7 @@ AEffect *VSTPlugin::loadEffect()
 
 	if (mainEntryPoint == nullptr) {
 		blog(LOG_WARNING, "Couldn't get a pointer to plug-in's main()");
+		unloadLibrary();
 		return nullptr;
 	}
 
