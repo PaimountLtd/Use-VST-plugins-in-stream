@@ -1,8 +1,3 @@
-if(DISABLE_UI)
-	message(STATUS "UI disabled,so vst plugin disabled")
-	return()
-endif()
-
 project(obs-vst)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -62,7 +57,11 @@ add_library(obs-vst MODULE
 	${obs-vst_HEADERS}
 	${vst-HEADER})
 
+find_package(OpenGL REQUIRED)
+include_directories( ${OPENGL_INCLUDE_DIRS})
+
 target_link_libraries(obs-vst
+	${OPENGL_LIBRARIES}
 	libobs)
 
 set_target_properties(obs-vst PROPERTIES FOLDER "plugins")

@@ -57,6 +57,7 @@ AEffect *VSTPlugin::loadEffect()
 		return nullptr;
 	}
 
+	blog(LOG_WARNING, "Opening main entry point from plugin path %s", pluginPath.c_str());
 	vstPluginMain mainEntryPoint = (vstPluginMain)GetProcAddress(dllHandle, "VSTPluginMain");
 
 	if (mainEntryPoint == nullptr) {

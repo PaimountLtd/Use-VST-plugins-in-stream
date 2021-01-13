@@ -21,6 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #if WIN32
 #include <Windows.h>
+#include <gl\gl.h>          // Header File For The OpenGL32 Library
+#include <gl\glu.h>   
 #elif __linux__
 #include <xcb/xcb.h>
 #endif
@@ -63,6 +65,15 @@ class EditorWidget {
 #ifdef __APPLE__
 #elif WIN32
 	HWND m_hwnd;
+	HWND   m_hwnd_parent;
+	HANDLE m_threadStarted;
+	GLvoid ReSizeGLScene(GLsizei width, GLsizei height);
+	int    InitGL(GLvoid);
+	int    DrawGLScene(GLvoid);
+	HWND   CreateGLWindow(int width, int height, int bits);
+	GLvoid KillGLWindow(HWND);
+	HDC    hDC = NULL; // Private GDI Device Context
+	HGLRC  hRC = NULL; // Permanent Rendering Context
 #elif __linux__
 	xcb_window_t m_wid;
 #endif

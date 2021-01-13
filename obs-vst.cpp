@@ -98,6 +98,8 @@ static void vst_update(void *data, obs_data_t *settings)
 	}
 
 	// Load VST plugin only when creating the filter or when changing plugin
+	blog(LOG_WARNING, "Is update from create: %d", isUpdateFromCreate);
+	
 	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || isUpdateFromCreate) {
 		vstPlugin->loadEffectFromPath(std::string(path));
 

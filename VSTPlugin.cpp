@@ -66,6 +66,7 @@ VSTPlugin::~VSTPlugin()
 void VSTPlugin::loadEffectFromPath(std::string path)
 {
 	if (this->pluginPath.compare(path) != 0) {
+		blog(LOG_WARNING, "VSTPlugin:loadEffectfromPath closing editor first and unloading effect");
 		closeEditor();
 		unloadEffect();
 	}
@@ -90,6 +91,7 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 			return;
 		}
 
+		blog(LOG_WARNING, "VSTPlugin:loadEffectfromPath effect pointer: %p", effect);
 		effect->dispatcher(effect, effGetEffectName, 0, 0, effectName, 0);
 		effect->dispatcher(effect, effGetVendorString, 0, 0, vendorString, 0);
 
@@ -104,8 +106,10 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 		effect->dispatcher(effect, effMainsChanged, 0, 1, nullptr, 0);
 
 		effectReady = true;
+		blog(LOG_WARNING, "Effect ready");
 
 		if (openInterfaceWhenActive) {
+			blog(LOG_WARNING, "openInterfaceWhenActive true, opening editor");
 			openEditor();
 		}
 	}
@@ -155,17 +159,25 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 
 void VSTPlugin::waitDeleteWorker()
 {
+	blog(LOG_WARNING,
+		"VST Plug-in waitDeleteWorker..."
+	);
 	if (deleteWorker != nullptr) {
-		if (deleteWorker->joinable())
+		if (deleteWorker->joinable()) {
+			blog(LOG_WARNING, "VST Plug-in waitDeleteWorker; waiting on deleteWorker");
 			deleteWorker->join();
+		}
 
 		delete deleteWorker;
 		deleteWorker = nullptr;
+	} else {
+		blog(LOG_WARNING, "VST Plug-in waitDeleteWorker; deleteWorker is null");
 	}
 }
 
 void VSTPlugin::unloadEffect()
 {
+	blog(LOG_WARNING, "VST Plug-in unloadEffect...");
 	waitDeleteWorker();
 
 	effectReady = false;
@@ -187,7 +199,14 @@ bool VSTPlugin::isEditorOpen()
 
 void VSTPlugin::openEditor()
 {
+	blog(LOG_WARNING,
+		"VST Plug-in: Opening editor, effectVal: %p, editorWidget: %p", 
+		  effect,
+		  editorWidget 
+	);
+
 	if (effect && !editorWidget) {
+		blog(LOG_WARNING, "VST Plug-in: OpenEditor, no editorWidget, creating one ");
 		editorWidget = new EditorWidget(this);
 		editorWidget->buildEffectContainer(effect);
 		editorWidget->send_setWindowTitle(effectName);
@@ -205,7 +224,17 @@ void VSTPlugin::removeEditor() {
 
 void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 {
+	blog(LOG_WARNING,
+		"VST Plug-in: closeEditor, effectVal: %p, editorWidget: %p", 
+		  effect,
+		  editorWidget 
+	);
 	if (isEditorOpen()) {
+		blog(LOG_WARNING,
+			"VST Plug-in: closeEditor, editor is open", 
+			  effect,
+			  editorWidget 
+		);
 		// Wait the last instance of the delete worker, if any
 		waitDeleteWorker();
 
@@ -215,6 +244,12 @@ void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 		if (waitDeleteWorkerOnShutdown) {
 			waitDeleteWorker();
 		}
+	} else {
+		blog(LOG_WARNING,
+			"VST Plug-in: closeEditor, editor is NOT open", 
+			  effect,
+			  editorWidget 
+		);
 	}
 }
 
