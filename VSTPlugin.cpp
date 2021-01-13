@@ -171,6 +171,7 @@ void VSTPlugin::unloadEffect()
 	effectReady = false;
 
 	if (effect) {
+		effect->dispatcher(effect, effStopProcess, 0, 0, nullptr, 0);
 		effect->dispatcher(effect, effMainsChanged, 0, 0, nullptr, 0);
 		effect->dispatcher(effect, effClose, 0, 0, nullptr, 0.0f);
 	}
