@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "vst-plugin-callbacks.hpp"
 #include "EditorWidget.h"
 #include <thread>
+#include <mutex>
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
@@ -48,6 +49,7 @@ class VSTPlugin {
 	AEffect *loadEffect();
 
 	bool effectReady = false;
+	std::mutex effectStatusMutex;
 
 	std::string sourceName;
 	std::string filterName;
