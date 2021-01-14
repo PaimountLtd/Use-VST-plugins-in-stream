@@ -99,15 +99,19 @@ static void vst_update(void *data, obs_data_t *settings)
 
 	// Load VST plugin only when creating the filter or when changing plugin
 	blog(LOG_WARNING, "Is update from create: %d", isUpdateFromCreate);
-	
+
 	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || isUpdateFromCreate) {
-		vstPlugin->loadEffectFromPath(std::string(path));
+		if (!vstPlugin->editorWidget) {
+			vstPlugin->editorWidget = new EditorWidget(vstPlugin);
+			vstPlugin->editorWidget->buildEffectContainer();
+		}
+		vstPlugin->send_loadEffectFromPath(std::string(path));
 
 		// Load chunk only when creating the filter
 		if (isUpdateFromCreate) {
 			const char *chunkData = obs_data_get_string(settings, "chunk_data");
 			if (chunkData && strlen(chunkData) > 0) {
-				vstPlugin->setChunk(std::string(chunkData));
+				vstPlugin->send_setChunk(std::string(chunkData));
 			}
 
 			isUpdateFromCreate = false;
@@ -115,10 +119,14 @@ static void vst_update(void *data, obs_data_t *settings)
 			// If VST plugin was loaded after choosing a new one, reset chunk
 			obs_data_set_string(settings, "chunk_data", "");
 		}
+	} else {
+		blog(LOG_WARNING, "obs-vst not loading path %s", path);
 	}
 
 	// Save chunk only after closing the editor
+
 	if (isUpdateFromCloseEditor) {
+		blog(LOG_WARNING, "obs-vst update from closed editor: %s", vstPlugin->getChunk().c_str());
 		obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
 		isUpdateFromCloseEditor = false;
 	}

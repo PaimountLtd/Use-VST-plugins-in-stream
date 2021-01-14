@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstringt.h>
 #include <functional>
 
-VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
+VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}, effect{nullptr}
 {
 
 	int numChannels = VST_MAX_CHANNELS;
@@ -66,13 +66,15 @@ VSTPlugin::~VSTPlugin()
 void VSTPlugin::loadEffectFromPath(std::string path)
 {
 	if (this->pluginPath.compare(path) != 0) {
-		blog(LOG_WARNING, "VSTPlugin:loadEffectfromPath closing editor first and unloading effect");
+		blog(LOG_WARNING, "VSTPlugin:loadEffectfromPath closing editor first and unloading effect; pluginPath %s != %s", this->pluginPath.c_str(), path.c_str());
 		closeEditor();
 		unloadEffect();
 	}
-
+	
 	if (!effect) {
 		pluginPath = path;
+		blog(LOG_WARNING, "VSTPlugin:loadEffect from pluginPath %s ", pluginPath.c_str());
+
 		effect     = loadEffect();
 
 		if (!effect) {
@@ -182,6 +184,7 @@ void VSTPlugin::unloadEffect()
 
 	effectReady = false;
 
+	//TODO
 	if (effect) {
 		effect->dispatcher(effect, effMainsChanged, 0, 0, nullptr, 0);
 		effect->dispatcher(effect, effClose, 0, 0, nullptr, 0.0f);
@@ -194,32 +197,35 @@ void VSTPlugin::unloadEffect()
 
 bool VSTPlugin::isEditorOpen()
 {
-	return !!editorWidget;
+	return (editorWidget && editorWidget->m_hwnd != 0);
 }
 
 void VSTPlugin::openEditor()
 {
 	blog(LOG_WARNING,
-		"VST Plug-in: Opening editor, effectVal: %p, editorWidget: %p", 
-		  effect,
+		"VST Plug-in: Opening editor, editorWidget: %p", 
 		  editorWidget 
 	);
 
-	if (effect && !editorWidget) {
+	if (!editorWidget) {
 		blog(LOG_WARNING, "VST Plug-in: OpenEditor, no editorWidget, creating one ");
 		editorWidget = new EditorWidget(this);
-		editorWidget->buildEffectContainer(effect);
-		editorWidget->send_setWindowTitle(effectName);
+		editorWidget->buildEffectContainer();
+	} else {
 		editorWidget->send_show();
 	}
 }
 
 void VSTPlugin::removeEditor() {
-	if (editorWidget->windowWorker.joinable())
+	if (editorWidget->windowWorker.joinable()) {
+		blog(LOG_WARNING, "VSTPlugin::removeEditor Waiting for editorWidget windowworker");
 		editorWidget->windowWorker.join();
+	}
+	blog(LOG_WARNING, "VSTPlugin::removeEditor deleting editorWidget");
 
 	delete editorWidget;
 	editorWidget = nullptr;
+	blog(LOG_WARNING, "VSTPlugin::removeEditor after delet editorWidget");
 }
 
 void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
@@ -238,7 +244,9 @@ void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 		// Wait the last instance of the delete worker, if any
 		waitDeleteWorker();
 
+		blog(LOG_WARNING, "VST Plug-in: closeEditor, sending close... and creating new delete worker");
 		editorWidget->send_close();
+
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 
 		if (waitDeleteWorkerOnShutdown) {

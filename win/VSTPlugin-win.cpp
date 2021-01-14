@@ -20,12 +20,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <util/platform.h>
 #include <windows.h>
+#include <string>
+
+AEffect* VSTPlugin::getEffect() {
+	return effect;
+}
 
 AEffect *VSTPlugin::loadEffect()
 {
 	AEffect *plugin = nullptr;
+	std::string dir    = pluginPath;
 
-	std::string dir = pluginPath;
+	blog(LOG_WARNING, "VSTPlugin dir: %s", dir.c_str());
+
 	while (dir.back() != '/')
 		dir.pop_back();
 
@@ -78,6 +85,20 @@ AEffect *VSTPlugin::loadEffect()
 	plugin->user = this;
 	return plugin;
 }
+
+void VSTPlugin::send_loadEffectFromPath(std::string path) {
+	editorWidget->send_loadEffectFromPath(path);
+}
+
+void VSTPlugin::send_setChunk(std::string chunk)
+{
+	editorWidget->send_setChunk(chunk);
+}
+
+void VSTPlugin::send_unloadEffect() {
+
+}
+
 
 void VSTPlugin::unloadLibrary()
 {

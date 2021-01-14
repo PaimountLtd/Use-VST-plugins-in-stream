@@ -36,6 +36,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 class EditorWidget;
 
 class VSTPlugin {
+	friend class EditorWidget;
 	AEffect *     effect = nullptr;
 	obs_source_t *sourceContext;
 	std::string   pluginPath;
@@ -43,10 +44,12 @@ class VSTPlugin {
 	float **inputs;
 	float **outputs;
 
+
+public:
+	AEffect *loadEffect();
 	EditorWidget *editorWidget = nullptr;
 
-	AEffect *loadEffect();
-
+private:
 	bool effectReady = false;
 
 	std::string sourceName;
@@ -87,16 +90,20 @@ class VSTPlugin {
 
 public:
 	VSTPlugin(obs_source_t *sourceContext);
+	AEffect *getEffect();
 	~VSTPlugin();
 	std::thread* deleteWorker = nullptr;
 
+	void            send_loadEffectFromPath(std::string path);
 	void            loadEffectFromPath(std::string path);
+	void            send_unloadEffect();
 	void            unloadEffect();
 	bool            isEditorOpen();
 	void            openEditor();
 	void            removeEditor();
 	void            closeEditor(bool waitDeleteWorkerOnShutdown = false);
 	std::string     getChunk();
+	void            send_setChunk(std::string data);
 	void            setChunk(std::string data);
 	void            setProgram(const int programNumber);
 	int             getProgram();

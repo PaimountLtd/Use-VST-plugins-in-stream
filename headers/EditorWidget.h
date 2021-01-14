@@ -44,7 +44,9 @@ enum WM_USER_MSG {
 	// messages to the main window
 	WM_USER_SET_TITLE = WM_USER + 5,
 	WM_USER_SHOW,
-	WM_USER_CLOSE
+	WM_USER_CLOSE,
+	WM_USER_LOAD_DLL,
+	WM_USER_SETCHUNK
 };
 
 class VSTPlugin;
@@ -59,21 +61,17 @@ public:
 };
 
 class EditorWidget {
-
+	friend class VSTPlugin;
 	VSTPlugin *plugin;
 	AEffect *   m_effect;
+	std::string m_title;
+	std::string m_path;
+	bool        needs_to_show_window;
 #ifdef __APPLE__
 #elif WIN32
 	HWND m_hwnd;
-	HWND   m_hwnd_parent;
 	HANDLE m_threadStarted;
-	GLvoid ReSizeGLScene(GLsizei width, GLsizei height);
-	int    InitGL(GLvoid);
-	int    DrawGLScene(GLvoid);
-	HWND   CreateGLWindow(int width, int height, int bits);
-	GLvoid KillGLWindow(HWND);
-	HDC    hDC = NULL; // Private GDI Device Context
-	HGLRC  hRC = NULL; // Permanent Rendering Context
+	void   createWindow();
 #elif __linux__
 	xcb_window_t m_wid;
 #endif
@@ -87,10 +85,11 @@ public:
 	void show();
 	void dispatcherClose();
 	void close();
-	void buildEffectContainer(AEffect *effect);
+	void buildEffectContainer();
 
 	void buildEffectContainer_worker();
-
+	void send_setChunk(std::string chunk);
+	void send_loadEffectFromPath(std::string path);
 	void send_setWindowTitle(const char *title);
 	void send_show();
 	void send_close();
