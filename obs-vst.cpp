@@ -82,6 +82,7 @@ static void vst_destroy(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 	vstPlugin->closeEditor(true);
+	vstPlugin->unloadEffect();
 	delete vstPlugin;
 }
 
