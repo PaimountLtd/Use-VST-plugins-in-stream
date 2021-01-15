@@ -93,9 +93,6 @@ static void vst_update(void *data, obs_data_t *settings)
 
 	const char *path = obs_data_get_string(settings, "plugin_path");
 	blog(LOG_DEBUG, "%s loading plugin from \"%s\"", PLUG_IN_NAME, path? path:"");
-	if (strcmp(path, "") == 0) {
-		return;
-	}
 
 	// Load VST plugin only when creating the filter or when changing plugin
 	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || isUpdateFromCreate) {
