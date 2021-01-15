@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstringt.h>
 #include <functional>
 
-VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}, effect{nullptr}
+VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}, effect{nullptr}, is_open{false}
 {
 
 	int numChannels = VST_MAX_CHANNELS;
@@ -197,16 +197,18 @@ void VSTPlugin::unloadEffect()
 
 bool VSTPlugin::isEditorOpen()
 {
-	return (editorWidget && editorWidget->m_hwnd != 0);
+	return is_open;
+	//return (editorWidget && editorWidget->m_hwnd != 0);
 }
 
 void VSTPlugin::openEditor()
 {
+	is_open = true;
 	blog(LOG_WARNING,
 		"VST Plug-in: Opening editor, editorWidget: %p", 
 		  editorWidget 
 	);
-
+	
 	if (!editorWidget) {
 		blog(LOG_WARNING, "VST Plug-in: OpenEditor, no editorWidget, creating one ");
 		editorWidget = new EditorWidget(this);
@@ -231,21 +233,22 @@ void VSTPlugin::removeEditor() {
 void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 {
 	blog(LOG_WARNING,
-		"VST Plug-in: closeEditor, effectVal: %p, editorWidget: %p", 
-		  effect,
+		"VST Plug-in: closeEditor, editorWidget: %p",
 		  editorWidget 
 	);
-	if (isEditorOpen()) {
+	is_open = false;
+	if (editorWidget && editorWidget->m_hwnd != 0) {
 		blog(LOG_WARNING,
 			"VST Plug-in: closeEditor, editor is open", 
 			  effect,
 			  editorWidget 
 		);
-		// Wait the last instance of the delete worker, if any
-		waitDeleteWorker();
 
 		blog(LOG_WARNING, "VST Plug-in: closeEditor, sending close... and creating new delete worker");
 		editorWidget->send_close();
+
+		// Wait the last instance of the delete worker, if any
+		waitDeleteWorker();
 
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 
@@ -254,9 +257,7 @@ void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 		}
 	} else {
 		blog(LOG_WARNING,
-			"VST Plug-in: closeEditor, editor is NOT open", 
-			  effect,
-			  editorWidget 
+			"VST Plug-in: closeEditor, editor is NOT open"
 		);
 	}
 }

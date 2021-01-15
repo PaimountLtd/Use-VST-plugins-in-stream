@@ -19,4 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "headers/EditorWidget.h"
 
 EditorWidget::EditorWidget(VSTPlugin *plugin) : plugin(plugin), m_effect(nullptr), needs_to_show_window(false) {
+#ifdef WIN32
+	m_hwnd = 0;
+#endif // WIN32
 }
+

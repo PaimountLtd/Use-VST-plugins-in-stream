@@ -43,7 +43,7 @@ class VSTPlugin {
 
 	float **inputs;
 	float **outputs;
-
+	bool    is_open;
 
 public:
 	AEffect *loadEffect();

@@ -54,6 +54,7 @@ void EditorWidget::buildEffectContainer()
 {
 	//m_effect     = effect;
 	blog(LOG_WARNING, "EditorWidget: buildEffectContainer, about to start thread");
+
 	m_threadStarted  = CreateEvent(NULL,              // default security attributes
 	              TRUE,              // manual-reset event
 	              FALSE,             // initial state is nonsignaled
@@ -169,6 +170,9 @@ void EditorWidget::buildEffectContainer_worker()
 				}
 				this->createWindow();
 			} else if (msg.message == WM_USER_CLOSE) {
+				if (shutdown) {
+					continue;
+				}
 				blog(LOG_WARNING, "EditorWidget worker got window close");
 				close();
 				dispatcherClose();
