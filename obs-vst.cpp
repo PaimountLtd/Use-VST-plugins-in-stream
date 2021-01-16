@@ -27,11 +27,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define OPEN_VST_SETTINGS "open_vst_settings"
 #define CLOSE_VST_SETTINGS "close_vst_settings"
+#define SAVE_VST_PLUING_PROPERTIES "save_vst_pluing_properties"
 #define OPEN_WHEN_ACTIVE_VST_SETTINGS "open_when_active_vst_settings"
+#define VST_PLUGIN_PROPERTIES "vst_plugin_properties"
 
 #define PLUG_IN_NAME obs_module_text("VstPlugin")
 #define OPEN_VST_TEXT obs_module_text("OpenPluginInterface")
 #define CLOSE_VST_TEXT obs_module_text("ClosePluginInterface")
+#define SAVE_VST_TEXT obs_module_text("Save")
 #define OPEN_WHEN_ACTIVE_VST_TEXT obs_module_text("OpenInterfaceWhenActive")
 
 OBS_DECLARE_MODULE()
@@ -69,6 +72,29 @@ static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t 
 
 	UNUSED_PARAMETER(property);
 
+	return true;
+}
+
+static bool save_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
+{
+	VSTPlugin *vstPlugin = (VSTPlugin *)data;
+	vstPlugin->saveWasClicked = true;
+
+	UNUSED_PARAMETER(props);
+	UNUSED_PARAMETER(property);
+
+	return true;
+}
+
+static bool save_editor_button_modified(obs_properties_t *props, obs_property_t *p, obs_data_t *settings)
+{
+	VSTPlugin *vstPlugin = (VSTPlugin *)obs_properties_get_param(props);
+	obs_property_t *saveButton = obs_properties_get(props, SAVE_VST_PLUING_PROPERTIES);
+	if (vstPlugin->saveWasClicked && saveButton == p) {
+		blog(LOG_DEBUG, "%s Saving VST properties ", PLUG_IN_NAME);
+		vstPlugin->saveWasClicked = false;
+		obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
+	}
 	return true;
 }
 
@@ -130,13 +156,6 @@ static void *vst_create(obs_data_t *settings, obs_source_t *filter)
 	vst_update(vstPlugin, settings);
 
 	return vstPlugin;
-}
-
-static void vst_save(void *data, obs_data_t *settings)
-{
-	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-
-	obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
 }
 
 static struct obs_audio_data *vst_filter_audio(void *data, struct obs_audio_data *audio)
@@ -294,6 +313,8 @@ static obs_properties_t *vst_properties(void *data)
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
 	obs_properties_t *props = obs_properties_create();
+	obs_properties_set_param(props, vstPlugin, NULL);
+
 	obs_property_t *  list  = obs_properties_add_list(
                 props, "plugin_path", PLUG_IN_NAME, OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
@@ -304,6 +325,10 @@ static obs_properties_t *vst_properties(void *data)
 
 	obs_property_t *close_button = 
 		obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
+
+	obs_property_t *save_button = 
+		obs_properties_add_button(props, SAVE_VST_PLUING_PROPERTIES, SAVE_VST_TEXT, save_editor_button_clicked);
+	obs_property_set_modified_callback(save_button, save_editor_button_modified);
 
 	if (vstPlugin->isEditorOpen()) {
 		obs_property_set_visible(open_button, false);
@@ -330,7 +355,6 @@ bool obs_module_load(void)
 	vst_filter.update                 = vst_update;
 	vst_filter.filter_audio           = vst_filter_audio;
 	vst_filter.get_properties         = vst_properties;
-	vst_filter.save                   = vst_save;
 
 	obs_register_source(&vst_filter);
 	return true;

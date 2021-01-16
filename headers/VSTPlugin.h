@@ -98,6 +98,7 @@ public:
 	void            closeEditor(bool waitDeleteWorkerOnShutdown = false);
 	std::string     getChunk();
 	void            setChunk(std::string data);
+	bool 		saveWasClicked;
 	void            setProgram(const int programNumber);
 	int             getProgram();
 	void            getSourceNames();

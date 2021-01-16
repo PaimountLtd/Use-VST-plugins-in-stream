@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
 {
-
+	saveWasClicked = false;
 	int numChannels = VST_MAX_CHANNELS;
 	int blocksize   = BLOCK_SIZE;
 
@@ -261,7 +261,16 @@ std::string VSTPlugin::getChunk()
 
 	if (effect->flags & effFlagsProgramChunks) {
 		void *buf = nullptr;
-		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
+		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
+
+		if (!buf) {
+			blog(LOG_WARNING,  "VST Plug-in: Failed to get parameters, try to get preset");
+			chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
+		}
+		if (!buf) {
+			blog(LOG_WARNING,  "VST Plug-in: Failed to get preset");
+			return "";
+		}
 
 		encodedData.resize(cbase64_calc_encoded_length(chunkSize));
 
@@ -311,7 +320,7 @@ void VSTPlugin::setChunk(std::string data)
 	}
 
 	if (effect->flags & effFlagsProgramChunks) {
-		effect->dispatcher(effect, effSetChunk, 1, decodedData.length(), &decodedData[0], 0);
+		effect->dispatcher(effect, effSetChunk, 0, decodedData.length(), &decodedData[0], 0);
 	} else {
 		const char * p_chars  = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);
