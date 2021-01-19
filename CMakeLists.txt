@@ -57,9 +57,6 @@ add_library(obs-vst MODULE
 	${obs-vst_HEADERS}
 	${vst-HEADER})
 
-find_package(OpenGL REQUIRED)
-include_directories( ${OPENGL_INCLUDE_DIRS})
-
 target_link_libraries(obs-vst
 	${OPENGL_LIBRARIES}
 	libobs)

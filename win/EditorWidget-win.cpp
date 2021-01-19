@@ -15,10 +15,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 
-#include <Dwmapi.h>
-#include <gl\gl.h>          // Header File For The OpenGL32 Library
-#include <gl\glu.h>         // Header File For The GLu32 Library
-//#include <gl\glaux.h>       // Header File For The Glaux Library
 #include "../headers/EditorWidget.h"
 #include <functional>
 #include <string>
