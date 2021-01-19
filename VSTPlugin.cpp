@@ -68,7 +68,6 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 	if (this->pluginPath.compare(path) != 0) {
 		blog(LOG_WARNING, "VSTPlugin:loadEffectfromPath closing editor first and unloading effect; pluginPath %s != %s", this->pluginPath.c_str(), path.c_str());
 		closeEditor();
-		unloadEffect();
 	}
 	
 	if (!effect) {
@@ -198,7 +197,12 @@ void VSTPlugin::unloadEffect()
 bool VSTPlugin::isEditorOpen()
 {
 	return is_open;
-	//return (editorWidget && editorWidget->m_hwnd != 0);
+	
+}
+
+bool VSTPlugin::hasWindowOpen()
+{
+	return (editorWidget && editorWidget->m_hwnd != 0);
 }
 
 void VSTPlugin::openEditor()
@@ -213,12 +217,13 @@ void VSTPlugin::openEditor()
 		blog(LOG_WARNING, "VST Plug-in: OpenEditor, no editorWidget, creating one ");
 		editorWidget = new EditorWidget(this);
 		editorWidget->buildEffectContainer();
-	} else {
-		editorWidget->send_show();
 	}
+	
+	editorWidget->send_show();
 }
 
 void VSTPlugin::removeEditor() {
+	is_open = false;
 	if (editorWidget->windowWorker.joinable()) {
 		blog(LOG_WARNING, "VSTPlugin::removeEditor Waiting for editorWidget windowworker");
 		editorWidget->windowWorker.join();
@@ -255,6 +260,7 @@ void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 		if (waitDeleteWorkerOnShutdown) {
 			waitDeleteWorker();
 		}
+		unloadEffect();
 	} else {
 		blog(LOG_WARNING,
 			"VST Plug-in: closeEditor, editor is NOT open"

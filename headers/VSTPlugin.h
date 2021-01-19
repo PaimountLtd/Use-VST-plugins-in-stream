@@ -99,6 +99,7 @@ public:
 	void            send_unloadEffect();
 	void            unloadEffect();
 	bool            isEditorOpen();
+	bool            hasWindowOpen();
 	void            openEditor();
 	void            removeEditor();
 	void            closeEditor(bool waitDeleteWorkerOnShutdown = false);
