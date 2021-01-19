@@ -171,6 +171,7 @@ void EditorWidget::buildEffectContainer_worker()
 					continue;
 				}
 				blog(LOG_WARNING, "EditorWidget worker got window close");
+				this->plugin->chunkData = this->plugin->getChunk();
 				close();
 				dispatcherClose();
 				shutdown = true;

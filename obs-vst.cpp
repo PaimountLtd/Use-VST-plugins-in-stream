@@ -28,8 +28,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define OPEN_VST_SETTINGS "open_vst_settings"
 #define CLOSE_VST_SETTINGS "close_vst_settings"
 #define OPEN_WHEN_ACTIVE_VST_SETTINGS "open_when_active_vst_settings"
-#define SAVE_VST_PLUGIN_PROPERTIES "save_vst_pluing_properties"
-#define VST_PLUGIN_PROPERTIES "vst_plugin_properties"
 #define SAVE_VST_TEXT obs_module_text("Save")
 
 #define PLUG_IN_NAME obs_module_text("VstPlugin")
@@ -72,29 +70,6 @@ static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t 
 
 	UNUSED_PARAMETER(property);
 
-	return true;
-}
-
-static bool save_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
-{
-	VSTPlugin *vstPlugin      = (VSTPlugin *)data;
-	vstPlugin->saveWasClicked = true;
-
-	UNUSED_PARAMETER(props);
-	UNUSED_PARAMETER(property);
-
-	return true;
-}
-
-static bool save_editor_button_modified(obs_properties_t *props, obs_property_t *p, obs_data_t *settings)
-{
-	VSTPlugin *     vstPlugin  = (VSTPlugin *)obs_properties_get_param(props);
-	obs_property_t *saveButton = obs_properties_get(props, SAVE_VST_PLUGIN_PROPERTIES);
-	if (vstPlugin->saveWasClicked && saveButton == p) {
-		blog(LOG_DEBUG, "%s Saving VST properties ", PLUG_IN_NAME);
-		vstPlugin->saveWasClicked = false;
-		obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
-	}
 	return true;
 }
 
@@ -147,18 +122,15 @@ static void vst_update(void *data, obs_data_t *settings)
 		vstPlugin->send_loadEffectFromPath(std::string(path));
 
 		// Load chunk only when creating the filter
-		if (isUpdateFromCreate) {
-			const char *chunkData = obs_data_get_string(settings, "chunk_data");
-			if (chunkData && strlen(chunkData) > 0) {
-				vstPlugin->send_setChunk(std::string(chunkData));
-			}
+		const char *chunkData = obs_data_get_string(settings, "chunk_data");
+		blog(LOG_DEBUG, "Loading chunk for filter %s", chunkData);
 
-			isUpdateFromCreate = false;
+		if (chunkData && strlen(chunkData) > 0) {
+			vstPlugin->send_setChunk(std::string(chunkData));
 		} else {
 			// If VST plugin was loaded after choosing a new one, reset chunk
 			obs_data_set_string(settings, "chunk_data", "");
 		}
-		
 	} else {
 		blog(LOG_WARNING, "obs-vst not loading path %s because same path or editor still open", path);
 	}
@@ -383,9 +355,7 @@ static obs_properties_t *vst_properties(void *data)
 	obs_property_t *close_button = 
 		obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
 
-	obs_property_t *save_button =
-	        obs_properties_add_button(props, SAVE_VST_PLUGIN_PROPERTIES, SAVE_VST_TEXT, save_editor_button_clicked);
-	obs_property_set_modified_callback(save_button, save_editor_button_modified);
+
 	obs_property_set_modified_callback(list, vst_method_changed);
 	//obs_properties_add_bool(props, OPEN_WHEN_ACTIVE_VST_SETTINGS, OPEN_WHEN_ACTIVE_VST_TEXT);
 

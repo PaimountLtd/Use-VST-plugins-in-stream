@@ -50,6 +50,7 @@ public:
 	AEffect *loadEffect();
 	EditorWidget *editorWidget = nullptr;
 	bool          saveWasClicked;
+	std::string   chunkData;
 
 private:
 	bool effectReady = false;

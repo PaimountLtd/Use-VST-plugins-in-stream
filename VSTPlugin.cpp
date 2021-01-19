@@ -310,11 +310,17 @@ std::string VSTPlugin::getChunk()
 	cbase64_encodestate encoder;
 	std::string encodedData;
 
-	cbase64_init_encodestate(&encoder);
+	if (chunkData.length()) {
+		blog(LOG_WARNING, "getChunk returning from cache ", chunkData.c_str());
+		return chunkData;
+	}
 
 	if (!effect) {
+		blog(LOG_WARNING, "getChunk, no effect");
 		return "";
 	}
+
+	cbase64_init_encodestate(&encoder);
 
 	if (effect->flags & effFlagsProgramChunks) {
 		void *buf = nullptr;
@@ -365,17 +371,19 @@ std::string VSTPlugin::getChunk()
 
 void VSTPlugin::setChunk(std::string data)
 {
+	chunkData = "";
 	cbase64_decodestate decoder;
 	cbase64_init_decodestate(&decoder);
 	std::string decodedData;
-
-	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
-	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
 
 	if (!effect) {
 		return;
 	}
 
+	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
+	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
+
+	
 	if (effect->flags & effFlagsProgramChunks) {
 		effect->dispatcher(effect, effSetChunk, 0, decodedData.length(), &decodedData[0], 0);
 	} else {
