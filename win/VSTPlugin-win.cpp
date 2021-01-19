@@ -45,6 +45,7 @@ AEffect *VSTPlugin::loadEffect()
 	dllHandle = LoadLibraryW(wpath);
 	SetDllDirectory(NULL);
 	bfree(wpath);
+	bfree(wdir);
 	if (dllHandle == nullptr) {
 
 		DWORD errorCode = GetLastError();
@@ -77,11 +78,17 @@ AEffect *VSTPlugin::loadEffect()
 
 	if (mainEntryPoint == nullptr) {
 		blog(LOG_WARNING, "Couldn't get a pointer to plug-in's main()");
+		unloadLibrary();
 		return nullptr;
 	}
 
 	// Instantiate the plug-in
 	plugin       = mainEntryPoint(hostCallback_static);
+	if (plugin == nullptr) {
+		blog(LOG_WARNING, "Failed to get filter object from a plugin");
+		unloadLibrary();
+		return nullptr;
+	}
 	plugin->user = this;
 	return plugin;
 }

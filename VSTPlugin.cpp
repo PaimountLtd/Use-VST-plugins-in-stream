@@ -25,7 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstringt.h>
 #include <functional>
 
-VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}, effect{nullptr}, is_open{false}
+VSTPlugin::VSTPlugin(obs_source_t *sourceContext)
+        : sourceContext{sourceContext}, effect{nullptr}, is_open{false}, saveWasClicked{false}
 {
 
 	int numChannels = VST_MAX_CHANNELS;
@@ -127,6 +128,9 @@ void silenceChannel(float **channelData, int numChannels, long numFrames)
 
 obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 {
+	if (!effectStatusMutex.try_lock())
+		return audio;
+
 	if (effect && effectReady) {
 		uint32_t passes = (audio->frames + BLOCK_SIZE - 1) / BLOCK_SIZE;
 		uint32_t extra  = audio->frames % BLOCK_SIZE;
@@ -154,6 +158,7 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 			}
 		}
 	}
+	effectStatusMutex.unlock();
 
 	return audio;
 }
@@ -178,13 +183,13 @@ void VSTPlugin::waitDeleteWorker()
 
 void VSTPlugin::unloadEffect()
 {
-	blog(LOG_WARNING, "VST Plug-in unloadEffect...");
 	waitDeleteWorker();
 
+	effectStatusMutex.lock();
 	effectReady = false;
 
-	//TODO
 	if (effect) {
+		effect->dispatcher(effect, effStopProcess, 0, 0, nullptr, 0);
 		effect->dispatcher(effect, effMainsChanged, 0, 0, nullptr, 0);
 		effect->dispatcher(effect, effClose, 0, 0, nullptr, 0.0f);
 	}
@@ -192,6 +197,8 @@ void VSTPlugin::unloadEffect()
 	effect = nullptr;
 
 	unloadLibrary();
+
+	effectStatusMutex.unlock();
 }
 
 bool VSTPlugin::isEditorOpen()
@@ -311,7 +318,16 @@ std::string VSTPlugin::getChunk()
 
 	if (effect->flags & effFlagsProgramChunks) {
 		void *buf = nullptr;
-		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
+		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
+
+		if (!buf) {
+			blog(LOG_WARNING, "VST Plug-in: Failed to get parameters, try to get preset");
+			chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
+		}
+		if (!buf) {
+			blog(LOG_WARNING, "VST Plug-in: Failed to get preset");
+			return "";
+		}
 
 		encodedData.resize(cbase64_calc_encoded_length(chunkSize));
 
@@ -361,7 +377,7 @@ void VSTPlugin::setChunk(std::string data)
 	}
 
 	if (effect->flags & effFlagsProgramChunks) {
-		effect->dispatcher(effect, effSetChunk, 1, decodedData.length(), &decodedData[0], 0);
+		effect->dispatcher(effect, effSetChunk, 0, decodedData.length(), &decodedData[0], 0);
 	} else {
 		const char * p_chars  = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);

@@ -86,8 +86,9 @@ void EditorWidget::createWindow() {
 	m_hwnd = CreateWindowEx(
 	        exStyle, wcex.lpszClassName, TEXT(""), style, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
 
+	EnableMenuItem(GetSystemMenu(m_hwnd, FALSE), SC_CLOSE, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
+
 	blog(LOG_WARNING, "EditorWidget::buildEffectContainer_worker CreateWindowEx, m_hwnd: %p ", m_hwnd);
-	// SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)plugin);
 	blog(LOG_WARNING, "EditorWidget::m_effect->dispatcher addr: %p", m_effect->dispatcher);
 
 	m_effect->dispatcher(m_effect, effEditOpen, 0, 0, m_hwnd, 0);

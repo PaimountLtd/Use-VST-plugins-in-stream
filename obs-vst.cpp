@@ -28,6 +28,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define OPEN_VST_SETTINGS "open_vst_settings"
 #define CLOSE_VST_SETTINGS "close_vst_settings"
 #define OPEN_WHEN_ACTIVE_VST_SETTINGS "open_when_active_vst_settings"
+#define SAVE_VST_PLUGIN_PROPERTIES "save_vst_pluing_properties"
+#define VST_PLUGIN_PROPERTIES "vst_plugin_properties"
+#define SAVE_VST_TEXT obs_module_text("Save")
 
 #define PLUG_IN_NAME obs_module_text("VstPlugin")
 #define OPEN_VST_TEXT obs_module_text("OpenPluginInterface")
@@ -72,6 +75,29 @@ static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t 
 	return true;
 }
 
+static bool save_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
+{
+	VSTPlugin *vstPlugin      = (VSTPlugin *)data;
+	vstPlugin->saveWasClicked = true;
+
+	UNUSED_PARAMETER(props);
+	UNUSED_PARAMETER(property);
+
+	return true;
+}
+
+static bool save_editor_button_modified(obs_properties_t *props, obs_property_t *p, obs_data_t *settings)
+{
+	VSTPlugin *     vstPlugin  = (VSTPlugin *)obs_properties_get_param(props);
+	obs_property_t *saveButton = obs_properties_get(props, SAVE_VST_PLUGIN_PROPERTIES);
+	if (vstPlugin->saveWasClicked && saveButton == p) {
+		blog(LOG_DEBUG, "%s Saving VST properties ", PLUG_IN_NAME);
+		vstPlugin->saveWasClicked = false;
+		obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
+	}
+	return true;
+}
+
 static const char *vst_name(void *unused)
 {
 	UNUSED_PARAMETER(unused);
@@ -82,6 +108,7 @@ static void vst_destroy(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 	vstPlugin->closeEditor(true);
+	vstPlugin->unloadEffect();
 	delete vstPlugin;
 }
 
@@ -106,8 +133,6 @@ static void vst_update(void *data, obs_data_t *settings)
 
 	// Load VST plugin only when creating the filter or when changing plugin
 	blog(LOG_WARNING, "Is update from create: %d", isUpdateFromCreate);
-
-	//	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || isUpdateFromCreate)
 
 	bool load_vst = false;
 	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || !vstPlugin->hasWindowOpen()) {
@@ -345,7 +370,6 @@ static obs_properties_t *vst_properties(void *data)
 
 
 	obs_properties_t *props = obs_properties_create();
-
 	obs_properties_set_param(props, vstPlugin, NULL);
 
 	obs_property_t *  list  = obs_properties_add_list(
@@ -359,19 +383,11 @@ static obs_properties_t *vst_properties(void *data)
 	obs_property_t *close_button = 
 		obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
 
+	obs_property_t *save_button =
+	        obs_properties_add_button(props, SAVE_VST_PLUGIN_PROPERTIES, SAVE_VST_TEXT, save_editor_button_clicked);
+	obs_property_set_modified_callback(save_button, save_editor_button_modified);
 	obs_property_set_modified_callback(list, vst_method_changed);
-	/*
-	if (vstPlugin->isEditorOpen()) {
-		blog(LOG_WARNING, "Setting close btn to true");
-		obs_property_set_visible(open_button, false);
-		obs_property_set_visible(close_button, true);
-	} else {
-		blog(LOG_WARNING, "Setting open btn to true");
-		obs_property_set_visible(close_button, false);
-		obs_property_set_visible(open_button, true);
-	}*/
-
-	obs_properties_add_bool(props, OPEN_WHEN_ACTIVE_VST_SETTINGS, OPEN_WHEN_ACTIVE_VST_TEXT);
+	//obs_properties_add_bool(props, OPEN_WHEN_ACTIVE_VST_SETTINGS, OPEN_WHEN_ACTIVE_VST_TEXT);
 
 	UNUSED_PARAMETER(data);
 
