@@ -67,13 +67,13 @@ VSTPlugin::~VSTPlugin()
 void VSTPlugin::loadEffectFromPath(std::string path)
 {
 	if (this->pluginPath.compare(path) != 0) {
-		blog(LOG_WARNING, "VSTPlugin:loadEffectfromPath closing editor first and unloading effect; pluginPath %s != %s", this->pluginPath.c_str(), path.c_str());
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath closing editor first and unloading effect; pluginPath %s != %s", this->pluginPath.c_str(), path.c_str());
 		closeEditor();
 	}
 	
 	if (!effect) {
 		pluginPath = path;
-		blog(LOG_WARNING, "VSTPlugin:loadEffect from pluginPath %s ", pluginPath.c_str());
+		blog(LOG_DEBUG, "VSTPlugin:loadEffect from pluginPath %s ", pluginPath.c_str());
 
 		effect     = loadEffect();
 
@@ -93,7 +93,7 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 			return;
 		}
 
-		blog(LOG_WARNING, "VSTPlugin:loadEffectfromPath effect pointer: %p", effect);
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath effect pointer: %p", effect);
 		effect->dispatcher(effect, effGetEffectName, 0, 0, effectName, 0);
 		effect->dispatcher(effect, effGetVendorString, 0, 0, vendorString, 0);
 
@@ -108,10 +108,8 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 		effect->dispatcher(effect, effMainsChanged, 0, 1, nullptr, 0);
 
 		effectReady = true;
-		blog(LOG_WARNING, "Effect ready");
 
 		if (openInterfaceWhenActive) {
-			blog(LOG_WARNING, "openInterfaceWhenActive true, opening editor");
 			openEditor();
 		}
 	}
@@ -165,9 +163,6 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 
 void VSTPlugin::waitDeleteWorker()
 {
-	blog(LOG_WARNING,
-		"VST Plug-in waitDeleteWorker..."
-	);
 	if (deleteWorker != nullptr) {
 		if (deleteWorker->joinable()) {
 			blog(LOG_WARNING, "VST Plug-in waitDeleteWorker; waiting on deleteWorker");
@@ -176,8 +171,6 @@ void VSTPlugin::waitDeleteWorker()
 
 		delete deleteWorker;
 		deleteWorker = nullptr;
-	} else {
-		blog(LOG_WARNING, "VST Plug-in waitDeleteWorker; deleteWorker is null");
 	}
 }
 
@@ -215,13 +208,8 @@ bool VSTPlugin::hasWindowOpen()
 void VSTPlugin::openEditor()
 {
 	is_open = true;
-	blog(LOG_WARNING,
-		"VST Plug-in: Opening editor, editorWidget: %p", 
-		  editorWidget 
-	);
 	
 	if (!editorWidget) {
-		blog(LOG_WARNING, "VST Plug-in: OpenEditor, no editorWidget, creating one ");
 		editorWidget = new EditorWidget(this);
 		editorWidget->buildEffectContainer();
 	}
@@ -232,25 +220,18 @@ void VSTPlugin::openEditor()
 void VSTPlugin::removeEditor() {
 	is_open = false;
 	if (editorWidget->windowWorker.joinable()) {
-		blog(LOG_WARNING, "VSTPlugin::removeEditor Waiting for editorWidget windowworker");
 		editorWidget->windowWorker.join();
 	}
-	blog(LOG_WARNING, "VSTPlugin::removeEditor deleting editorWidget");
 
 	delete editorWidget;
 	editorWidget = nullptr;
-	blog(LOG_WARNING, "VSTPlugin::removeEditor after delet editorWidget");
 }
 
 void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 {
-	blog(LOG_WARNING,
-		"VST Plug-in: closeEditor, editorWidget: %p",
-		  editorWidget 
-	);
 	is_open = false;
 	if (editorWidget && editorWidget->m_hwnd != 0) {
-		blog(LOG_WARNING,
+		blog(LOG_DEBUG,
 			"VST Plug-in: closeEditor, editor is open", 
 			  effect,
 			  editorWidget 
@@ -312,7 +293,6 @@ std::string VSTPlugin::getChunk()
 	std::string encodedData;
 
 	if (chunkData.length()) {
-		blog(LOG_WARNING, "getChunk returning from cache ", chunkData.c_str());
 		return chunkData;
 	}
 

@@ -84,7 +84,6 @@ void EditorWidget::createWindow() {
 
 	EnableMenuItem(GetSystemMenu(m_hwnd, FALSE), SC_CLOSE, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
 
-	blog(LOG_WARNING, "EditorWidget::buildEffectContainer_worker CreateWindowEx, m_hwnd: %p ", m_hwnd);
 	blog(LOG_WARNING, "EditorWidget::m_effect->dispatcher addr: %p", m_effect->dispatcher);
 
 	m_effect->dispatcher(m_effect, effEditOpen, 0, 0, m_hwnd, 0);
@@ -156,10 +155,8 @@ void EditorWidget::buildEffectContainer_worker()
 		} else {
 			if (msg.message == WM_USER_SET_TITLE) {
 				const char *title = reinterpret_cast<const char *>(msg.wParam);
-				blog(LOG_WARNING, "EditorWidget worker got title %s ", title);
 				setWindowTitle(title);
 			} else if (msg.message == WM_USER_SHOW) {
-				blog(LOG_WARNING, "EditorWidget worker got show window plugin");
 				if (!m_effect) {
 					blog(LOG_WARNING, "EditorWidget m_effect is NULL");
 					needs_to_show_window = true;
@@ -170,7 +167,6 @@ void EditorWidget::buildEffectContainer_worker()
 				if (shutdown) {
 					continue;
 				}
-				blog(LOG_WARNING, "EditorWidget worker got window close");
 				this->plugin->chunkData = this->plugin->getChunk();
 				close();
 				dispatcherClose();
@@ -179,7 +175,6 @@ void EditorWidget::buildEffectContainer_worker()
 				shared_ptr<string> path_str (new string(*reinterpret_cast<string *>(msg.wParam)));
 				const char *path = path_str->c_str();
 				m_path = path;
-				blog(LOG_WARNING, "EditorWidget worker got load DLL %s ", path);
 				plugin->loadEffectFromPath(path);
 				m_effect = plugin->getEffect();
 				if (!m_effect) {
@@ -193,7 +188,6 @@ void EditorWidget::buildEffectContainer_worker()
 			} else if (msg.message == WM_USER_SETCHUNK) {
 				shared_ptr<string> chunk_str = make_shared<string>(*reinterpret_cast<string *>(msg.wParam));
 				const char *chunk = chunk_str->c_str();
-				blog(LOG_WARNING, "EditorWidget worker got show chunk DLL %s ", chunk);
 				plugin->setChunk(chunk);
 			}
 			TranslateMessage(&msg);
@@ -210,7 +204,7 @@ void EditorWidget::send_setChunk(string chunk) {
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
 	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_setChunk WaitForSingeObject failed: %ul", res);
+		blog(LOG_WARNING, "EditorWidget::send_setChunk WaitForSingleObject failed: %ul", res);
 		return;
 	}
 	
@@ -227,7 +221,7 @@ void EditorWidget::send_loadEffectFromPath(string path)
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
 	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_loadEffectFromPath WaitForSingeObject failed: %ul", res);
+		blog(LOG_WARNING, "EditorWidget::send_loadEffectFromPath WaitForSingleObject failed: %ul", res);
 		return;
 	}
 	
@@ -251,7 +245,7 @@ void EditorWidget::send_setWindowTitle(const char *title)
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
 	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_setWindowTitle WaitForSingeObject failed: %ul", res);
+		blog(LOG_WARNING, "EditorWidget::send_setWindowTitle WaitForSingleObject failed: %ul", res);
 		return;
 	}
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()),
@@ -259,7 +253,6 @@ void EditorWidget::send_setWindowTitle(const char *title)
 	                  reinterpret_cast<WPARAM>(title),
 	                  0);
 	if (!retMsg) {
-		blog(LOG_WARNING, "EditorWidget::send_setWindowTitle PostThreadMessage failed");
 		DWORD dw = GetLastError();
 		blog(LOG_WARNING, "EditorWidget::send_setWindowTitle, getLastError: %lu", dw);
 	}
@@ -286,7 +279,6 @@ void EditorWidget::send_close()
 	
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE, 0, reinterpret_cast<WPARAM>(&sd));
 	if (!retMsg) {
-		blog(LOG_WARNING, "EditorWidget::send_close PostThreadMessage failed");
 		DWORD dw = GetLastError();
 		blog(LOG_WARNING, "EditorWidget::send_close, getLastError: %lu", dw);
 	}
@@ -310,7 +302,6 @@ void EditorWidget::send_show()
 	}
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_SHOW, 0, 0);
 	if (!retMsg) {
-		blog(LOG_WARNING, "EditorWidget::send_show PostThreadMessage failed");
 		DWORD dw = GetLastError();
 		blog(LOG_WARNING, "EditorWidget::send_show, getLastError: %lu", dw);
 	}

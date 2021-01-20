@@ -87,16 +87,8 @@ static void vst_destroy(void *data)
 static void vst_update(void *data, obs_data_t *settings)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-
-	if (vstPlugin->isEditorOpen()) {
-		blog(LOG_WARNING, "SHOULD SET close btn to true");
-	} else {
-		blog(LOG_WARNING, "SHOULD SET open btn to true");
-	}
 	obs_data_set_bool(settings, "state_btn", vstPlugin->isEditorOpen());
-
 	vstPlugin->openInterfaceWhenActive = obs_data_get_bool(settings, OPEN_WHEN_ACTIVE_VST_SETTINGS);
-
 	const char *path = obs_data_get_string(settings, "plugin_path");
 
 	if (strcmp(path, "") == 0) {
@@ -322,12 +314,10 @@ static bool vst_method_changed(obs_properties_t *props, obs_property_t *p, obs_d
 	if (open) {
 		obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), false);
 		obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
-		blog(LOG_WARNING, "vst_method_changed SET close btn to true");
 	}
 	else {
 		obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), true);
 		obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), false);
-		blog(LOG_WARNING, "vst_method_changed SET open btn to true");
 	}
 	return true;
 }
