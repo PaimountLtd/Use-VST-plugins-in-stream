@@ -182,7 +182,11 @@ void EditorWidget::buildEffectContainer_worker()
 				blog(LOG_WARNING, "EditorWidget worker got load DLL %s ", path);
 				plugin->loadEffectFromPath(path);
 				m_effect = plugin->getEffect();
-				if (needs_to_show_window) {
+				if (!m_effect) {
+					blog(LOG_WARNING, "EditorWidget worker effect is NULL");
+					this->send_close();
+				}
+				else if (needs_to_show_window) {
 					needs_to_show_window = false;
 					this->createWindow();
 				}

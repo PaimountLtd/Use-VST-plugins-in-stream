@@ -47,9 +47,6 @@ static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *
 
 	blog(LOG_WARNING, "Open editor btn clicked");
 
-	//obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), false);
-	//obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
-
 	vstPlugin->openEditor();
 
 	UNUSED_PARAMETER(props);
@@ -357,7 +354,7 @@ static obs_properties_t *vst_properties(void *data)
 
 
 	obs_property_set_modified_callback(list, vst_method_changed);
-	//obs_properties_add_bool(props, OPEN_WHEN_ACTIVE_VST_SETTINGS, OPEN_WHEN_ACTIVE_VST_TEXT);
+	obs_properties_add_bool(props, OPEN_WHEN_ACTIVE_VST_SETTINGS, OPEN_WHEN_ACTIVE_VST_TEXT);
 
 	UNUSED_PARAMETER(data);
 
