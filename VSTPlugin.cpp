@@ -267,12 +267,13 @@ void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 		if (waitDeleteWorkerOnShutdown) {
 			waitDeleteWorker();
 		}
-		unloadEffect();
+		
 	} else {
 		blog(LOG_WARNING,
 			"VST Plug-in: closeEditor, editor is NOT open"
 		);
 	}
+	unloadEffect();
 }
 
 intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
