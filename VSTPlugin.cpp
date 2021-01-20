@@ -345,6 +345,7 @@ std::string VSTPlugin::getChunk()
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
 
+		encodedData = this->pluginPath + "|" + encodedData;
 		return encodedData;
 	} else {
 		std::vector<float> params;
@@ -365,6 +366,7 @@ std::string VSTPlugin::getChunk()
 			&encoder);
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
+		encodedData = this->pluginPath + "|" + encodedData;
 		return encodedData;
 	}
 }
@@ -379,6 +381,18 @@ void VSTPlugin::setChunk(std::string data)
 	if (!effect) {
 		return;
 	}
+
+	size_t      pathPos = data.find_first_of('|');
+	if (pathPos == std::string::npos) {
+		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s. Chunk doesn't contain path", this->pluginPath);
+		return;
+	}
+	std::string path = data.substr(0, pathPos);
+	if (path == data || path != this->pluginPath) {
+		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s", this->pluginPath);
+		return;
+	}
+	data = data.substr(pathPos+1);
 
 	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
 	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
