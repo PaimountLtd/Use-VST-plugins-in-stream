@@ -40,6 +40,7 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-vst", "en-US")
 
 bool isUpdateFromCreate      = false;
 bool isUpdateFromCloseEditor = false;
+bool immediateCloseClicked   = false;
 
 static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
@@ -59,6 +60,7 @@ static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *
 static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
 	isUpdateFromCloseEditor = true;
+	immediateCloseClicked   = true;
 
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 	blog(LOG_WARNING, "Close editor btn clicked");
@@ -87,7 +89,8 @@ static void vst_destroy(void *data)
 static void vst_update(void *data, obs_data_t *settings)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	obs_data_set_bool(settings, "state_btn", vstPlugin->isEditorOpen());
+	blog(LOG_WARNING, "vst_update set open to %d", vstPlugin->isEditorOpen());
+
 	vstPlugin->openInterfaceWhenActive = obs_data_get_bool(settings, OPEN_WHEN_ACTIVE_VST_SETTINGS);
 	const char *path                   = obs_data_get_string(settings, "plugin_path");
 
@@ -138,7 +141,6 @@ static void *vst_create(obs_data_t *settings, obs_source_t *filter)
 	isUpdateFromCreate = true;
 
 	VSTPlugin *vstPlugin = new VSTPlugin(filter);
-	obs_data_set_bool(settings, "state_btn", vstPlugin->isEditorOpen());
 
 	vst_update(vstPlugin, settings);
 
@@ -294,24 +296,31 @@ static void fill_out_plugins(obs_property_t *list)
 	}
 }
 
-static bool vst_method_changed(obs_properties_t *props, obs_property_t *p, obs_data_t *settings)
+static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_data_t *settings)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)obs_properties_get_param(props);
 	if (!vstPlugin) {
-		blog(LOG_WARNING, "vst_method_changed no VST plugin");
+		blog(LOG_WARNING, "open_btn_changed no VST plugin");
 		return true;
 	}
-	bool open = obs_data_get_bool(settings, "state_btn");
 
-	if (open) {
-		obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), false);
+	/*if (!vstPlugin->openInterfaceWhenActive) {
+		return true;
+	}*/
+
+	if (immediateCloseClicked) {
+		blog(LOG_WARNING, "open_btn_changed immediateCloseClicked");
+		immediateCloseClicked = false;
+		return true;
+	}
+	if (obs_property_is_visible(p) && vstPlugin->hasWindowOpen()) { //state is open
+		blog(LOG_WARNING, "open_btn_changed set close btn to visible, open btn to hidden");
 		obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
-	} else {
-		obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), true);
-		obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), false);
+		obs_property_set_visible(p, false);
 	}
 	return true;
 }
+
 
 static obs_properties_t *vst_properties(void *data)
 {
@@ -331,7 +340,10 @@ static obs_properties_t *vst_properties(void *data)
 	obs_property_t *close_button =
 	        obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
 
-	obs_property_set_modified_callback(list, vst_method_changed);
+	obs_property_set_visible(close_button, false);
+
+	obs_property_set_modified_callback(open_button, open_btn_changed);
+
 	obs_properties_add_bool(props, OPEN_WHEN_ACTIVE_VST_SETTINGS, OPEN_WHEN_ACTIVE_VST_TEXT);
 
 	UNUSED_PARAMETER(data);
