@@ -58,7 +58,6 @@ add_library(obs-vst MODULE
 	${vst-HEADER})
 
 target_link_libraries(obs-vst
-	${OPENGL_LIBRARIES}
 	libobs)
 
 set_target_properties(obs-vst PROPERTIES FOLDER "plugins")
