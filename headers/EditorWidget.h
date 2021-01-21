@@ -21,8 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #if WIN32
 #include <Windows.h>
-#include <gl\gl.h>          // Header File For The OpenGL32 Library
-#include <gl\glu.h>   
 #elif __linux__
 #include <xcb/xcb.h>
 #elif __APPLE__
