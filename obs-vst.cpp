@@ -89,7 +89,6 @@ static void vst_destroy(void *data)
 static void vst_update(void *data, obs_data_t *settings)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	blog(LOG_WARNING, "vst_update set open to %d", vstPlugin->isEditorOpen());
 
 	vstPlugin->openInterfaceWhenActive = obs_data_get_bool(settings, OPEN_WHEN_ACTIVE_VST_SETTINGS);
 	const char *path                   = obs_data_get_string(settings, "plugin_path");
