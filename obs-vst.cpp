@@ -304,10 +304,6 @@ static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_dat
 		return true;
 	}
 
-	/*if (!vstPlugin->openInterfaceWhenActive) {
-		return true;
-	}*/
-
 	if (immediateCloseClicked) {
 		blog(LOG_WARNING, "open_btn_changed immediateCloseClicked");
 		immediateCloseClicked = false;
