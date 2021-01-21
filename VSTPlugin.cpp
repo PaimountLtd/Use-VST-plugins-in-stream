@@ -158,6 +158,7 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 	}
 	effectStatusMutex.unlock();
 
+	effectStatusMutex.unlock();
 	return audio;
 }
 

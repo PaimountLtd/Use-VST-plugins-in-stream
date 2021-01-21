@@ -89,6 +89,7 @@ AEffect *VSTPlugin::loadEffect()
 		unloadLibrary();
 		return nullptr;
 	}
+
 	plugin->user = this;
 	return plugin;
 }
