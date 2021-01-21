@@ -54,6 +54,12 @@ void EditorWidget::buildEffectContainer(AEffect *effect) {
   this->setLayout(hblParams);
 }
 
+
+EditorWidget::~EditorWidget()
+{
+}	
+
+
 void EditorWidget::handleResizeRequest(int width, int height) {
   resize(width, height);
   cocoaViewContainer->resize(width, height);
@@ -63,4 +69,48 @@ void EditorWidget::handleResizeRequest(int width, int height) {
   [view setFrame:frame];
 
   this->setGeometry(QRect(0, 0, width, height));
+}
+
+void EditorWidget::buildEffectContainer() {
+
+}
+
+void EditorWidget::buildEffectContainer_worker() {
+
+}
+
+void EditorWidget::send_setChunk(std::string chunk) {
+
+}
+
+void EditorWidget::send_loadEffectFromPath(std::string path) {
+
+}
+
+void EditorWidget::setWindowTitle() {
+
+}
+
+void EditorWidget::send_setWindowTitle(const char *title) {
+
+}
+
+void EditorWidget::show() {
+
+}
+
+void EditorWidget::dispatcherClose() {
+
+}
+
+void EditorWidget::close() {
+
+}
+
+void EditorWidget::send_show() {
+
+}
+
+void EditorWidget::send_close() {
+
 }
