@@ -25,6 +25,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <gl\glu.h>   
 #elif __linux__
 #include <xcb/xcb.h>
+#elif __APPLE__
+typedef HWND unsigned long;
+typedef void *HANDLE;
 #endif
 
 #include "aeffectx.h"
@@ -32,6 +35,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+
+
 
 struct sync_data {
 	std::mutex              mtx;
@@ -67,12 +72,10 @@ class EditorWidget {
 	std::string m_title;
 	std::string m_path;
 	bool        needs_to_show_window;
-#ifdef __APPLE__
-#elif WIN32
-	HWND m_hwnd;
-	HANDLE m_threadStarted;
-	void   createWindow();
-#elif __linux__
+	HWND        m_hwnd;
+	HANDLE      m_threadStarted;
+	void        createWindow();
+#ifdef __linux__
 	xcb_window_t m_wid;
 #endif
 
