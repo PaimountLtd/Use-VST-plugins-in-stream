@@ -122,6 +122,9 @@ void silenceChannel(float **channelData, int numChannels, long numFrames)
 
 obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 {
+	if (!effectStatusMutex.try_lock())
+		return audio;
+
 	if (effect && effectReady) {
 		uint32_t passes = (audio->frames + BLOCK_SIZE - 1) / BLOCK_SIZE;
 		uint32_t extra  = audio->frames % BLOCK_SIZE;
@@ -150,6 +153,7 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 		}
 	}
 
+	effectStatusMutex.unlock();
 	return audio;
 }
 
@@ -168,6 +172,7 @@ void VSTPlugin::unloadEffect()
 {
 	waitDeleteWorker();
 
+	effectStatusMutex.lock();
 	effectReady = false;
 
 	if (effect) {
@@ -179,6 +184,8 @@ void VSTPlugin::unloadEffect()
 	effect = nullptr;
 
 	unloadLibrary();
+
+	effectStatusMutex.unlock();
 }
 
 bool VSTPlugin::isEditorOpen()
