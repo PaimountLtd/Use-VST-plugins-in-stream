@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define OPEN_VST_SETTINGS "open_vst_settings"
 #define CLOSE_VST_SETTINGS "close_vst_settings"
 #define OPEN_WHEN_ACTIVE_VST_SETTINGS "open_when_active_vst_settings"
+#define SAVE_VST_TEXT obs_module_text("Save")
 
 #define PLUG_IN_NAME obs_module_text("VstPlugin")
 #define OPEN_VST_TEXT obs_module_text("OpenPluginInterface")
@@ -39,15 +40,15 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-vst", "en-US")
 
 bool isUpdateFromCreate      = false;
 bool isUpdateFromCloseEditor = false;
+bool immediateCloseClicked   = false;
 
 static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
-	vstPlugin->openEditor();
+	blog(LOG_WARNING, "Open editor btn clicked");
 
-	obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), false);
-	obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
+	vstPlugin->openEditor();
 
 	UNUSED_PARAMETER(props);
 	UNUSED_PARAMETER(property);
@@ -59,13 +60,12 @@ static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *
 static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
 	isUpdateFromCloseEditor = true;
+	immediateCloseClicked   = true;
 
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
+	blog(LOG_WARNING, "Close editor btn clicked");
 
 	vstPlugin->closeEditor();
-
-	obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), true);
-	obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), false);
 
 	UNUSED_PARAMETER(property);
 
@@ -91,33 +91,45 @@ static void vst_update(void *data, obs_data_t *settings)
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
 	vstPlugin->openInterfaceWhenActive = obs_data_get_bool(settings, OPEN_WHEN_ACTIVE_VST_SETTINGS);
+	const char *path                   = obs_data_get_string(settings, "plugin_path");
 
-	const char *path = obs_data_get_string(settings, "plugin_path");
-	blog(LOG_DEBUG, "%s loading plugin from \"%s\"", PLUG_IN_NAME, path? path:"");
-	if (strcmp(path, "") == 0) {
+	if (!path || !strcmp(path, "")) {
 		return;
 	}
 
 	// Load VST plugin only when creating the filter or when changing plugin
-	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || isUpdateFromCreate) {
-		vstPlugin->loadEffectFromPath(std::string(path));
+	blog(LOG_WARNING, "Is update from create: %d", isUpdateFromCreate);
+
+	bool load_vst = false;
+	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || !vstPlugin->hasWindowOpen()) {
+		load_vst = true;
+	}
+
+	if (load_vst) {
+		if (!vstPlugin->editorWidget) {
+			vstPlugin->editorWidget = new EditorWidget(vstPlugin);
+			vstPlugin->editorWidget->buildEffectContainer();
+		}
+		vstPlugin->send_loadEffectFromPath(std::string(path));
 
 		// Load chunk only when creating the filter
-		if (isUpdateFromCreate) {
-			const char *chunkData = obs_data_get_string(settings, "chunk_data");
-			if (chunkData && strlen(chunkData) > 0) {
-				vstPlugin->setChunk(std::string(chunkData));
-			}
+		const char *chunkData = obs_data_get_string(settings, "chunk_data");
+		blog(LOG_DEBUG, "Loading chunk for filter %s", chunkData);
 
-			isUpdateFromCreate = false;
+		if (chunkData && strlen(chunkData) > 0) {
+			vstPlugin->send_setChunk(std::string(chunkData));
 		} else {
 			// If VST plugin was loaded after choosing a new one, reset chunk
 			obs_data_set_string(settings, "chunk_data", "");
 		}
+	} else {
+		blog(LOG_WARNING, "obs-vst not loading path %s because same path or editor still open", path);
 	}
 
 	// Save chunk only after closing the editor
+
 	if (isUpdateFromCloseEditor) {
+		blog(LOG_WARNING, "obs-vst update from closed editor: %s", vstPlugin->getChunk().c_str());
 		obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
 		isUpdateFromCloseEditor = false;
 	}
@@ -128,6 +140,7 @@ static void *vst_create(obs_data_t *settings, obs_source_t *filter)
 	isUpdateFromCreate = true;
 
 	VSTPlugin *vstPlugin = new VSTPlugin(filter);
+
 	vst_update(vstPlugin, settings);
 
 	return vstPlugin;
@@ -155,22 +168,22 @@ static struct obs_audio_data *vst_filter_audio(void *data, struct obs_audio_data
 	return audio;
 }
 
-bool valid_extension(const char *filepath) 
+bool valid_extension(const char *filepath)
 {
-	const char *ext = os_get_path_extension(filepath);
-	int filters_size = 1;
+	const char *ext          = os_get_path_extension(filepath);
+	int         filters_size = 1;
 
 #ifdef __APPLE__
-	const char *filters[] = { ".vst" };
+	const char *filters[] = {".vst"};
 #elif WIN32
-	const char *filters[] = { ".dll" };
+	const char *             filters[] = {".dll"};
 #elif __linux__
-	const char *filters[] = { ".so", ".o" };
+	const char *filters[] = {".so", ".o"};
 	++filters_size;
 #endif
 
 	for (int i = 0; i < filters_size; ++i) {
-			if (astrcmpi(filters[i], ext) == 0) {
+		if (astrcmpi(filters[i], ext) == 0) {
 			return true;
 		}
 	}
@@ -182,19 +195,16 @@ std::vector<std::string> win32_build_dir_list()
 {
 	const char *program_files_path = getenv("ProgramFiles");
 
-	const char* dir_list[] = {
-		"/Steinberg/VstPlugins/",
-		"/Common Files/Steinberg/Shared Components/",
-		"/Common Files/VST2/",
-		"/Common Files/VSTPlugins/",
-		"/VSTPlugins/"
-	};
+	const char *dir_list[] = {"/Steinberg/VstPlugins/",
+	                          "/Common Files/Steinberg/Shared Components/",
+	                          "/Common Files/VST2/",
+	                          "/Common Files/VSTPlugins/",
+	                          "/VSTPlugins/"};
 
-	const int dir_list_size = 
-		sizeof(dir_list) / sizeof(dir_list[0]);
+	const int dir_list_size = sizeof(dir_list) / sizeof(dir_list[0]);
 
 	std::vector<std::string> result(dir_list_size, program_files_path);
-	
+
 	for (int i = 0; i < result.size(); ++i) {
 		result[i].append(dir_list[i]);
 	}
@@ -204,9 +214,9 @@ std::vector<std::string> win32_build_dir_list()
 
 typedef std::pair<std::string, std::string> vst_data;
 
-static void find_plugins(std::vector<vst_data> &plugin_list, const char* dir_name)
+static void find_plugins(std::vector<vst_data> &plugin_list, const char *dir_name)
 {
-	os_dir_t *dir = os_opendir(dir_name);
+	os_dir_t * dir = os_opendir(dir_name);
 	os_dirent *ent = os_readdir(dir);
 
 	while (ent != NULL) {
@@ -225,13 +235,13 @@ static void find_plugins(std::vector<vst_data> &plugin_list, const char* dir_nam
 		}
 
 		/* This works well on Apple since we use *.vst
-		 * for the extension but not for other platforms. 
-		 * A Dll dependency will be added even if it's not 
-		 * an actual VST plugin. Can't do much about it 
+		 * for the extension but not for other platforms.
+		 * A Dll dependency will be added even if it's not
+		 * an actual VST plugin. Can't do much about it
 		 * unfortunately unless everyone suddenly decided to
 		 * use a more sane extension. */
 		if (valid_extension(ent->d_name)) {
-			plugin_list.push_back({ ent->d_name, path });
+			plugin_list.push_back({ent->d_name, path});
 		}
 
 	next_entry:
@@ -244,37 +254,32 @@ static void find_plugins(std::vector<vst_data> &plugin_list, const char* dir_nam
 static void fill_out_plugins(obs_property_t *list)
 {
 #ifdef __APPLE__
-	std::vector<std::string> dir_list({
-		"/Library/Audio/Plug-Ins/VST/",
-		"~/Library/Audio/Plug-ins/VST/"
-	});
+	std::vector<std::string> dir_list({"/Library/Audio/Plug-Ins/VST/", "~/Library/Audio/Plug-ins/VST/"});
 
 #elif WIN32
-	std::vector<std::string> dir_list = win32_build_dir_list();
+	std::vector<std::string> dir_list  = win32_build_dir_list();
 
 #elif __linux__
 	char *vstPathEnv = getenv("VST_PATH");
 	if (vstPathEnv != nullptr) {
-		std::string dir_list[] = { vstPathEnv };
+		std::string dir_list[] = {vstPathEnv};
 	} else {
 		/* FIXME: Platform dependent areas.
 		   Should use environment variables */
-		std::vector<std::string> dir_list({
-			"/usr/lib/vst/",
-			"/usr/lib/lxvst/",
-			"/usr/lib/linux_vst/",
-			"/usr/lib64/vst/",
-			"/usr/lib64/lxvst/",
-			"/usr/lib64/linux_vst/",
-			"/usr/local/lib/vst/",
-			"/usr/local/lib/lxvst/",
-			"/usr/local/lib/linux_vst/",
-			"/usr/local/lib64/vst/",
-			"/usr/local/lib64/lxvst/",
-			"/usr/local/lib64/linux_vst/",
-			"~/.vst/",
-			"~/.lxvst/"
-		});
+		std::vector<std::string> dir_list({"/usr/lib/vst/",
+		                                   "/usr/lib/lxvst/",
+		                                   "/usr/lib/linux_vst/",
+		                                   "/usr/lib64/vst/",
+		                                   "/usr/lib64/lxvst/",
+		                                   "/usr/lib64/linux_vst/",
+		                                   "/usr/local/lib/vst/",
+		                                   "/usr/local/lib/lxvst/",
+		                                   "/usr/local/lib/linux_vst/",
+		                                   "/usr/local/lib64/vst/",
+		                                   "/usr/local/lib64/lxvst/",
+		                                   "/usr/local/lib64/linux_vst/",
+		                                   "~/.vst/",
+		                                   "~/.lxvst/"});
 	}
 #endif
 
@@ -290,27 +295,49 @@ static void fill_out_plugins(obs_property_t *list)
 	}
 }
 
+static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_data_t *settings)
+{
+	VSTPlugin *vstPlugin = (VSTPlugin *)obs_properties_get_param(props);
+	if (!vstPlugin) {
+		blog(LOG_WARNING, "open_btn_changed no VST plugin");
+		return true;
+	}
+
+	if (immediateCloseClicked) {
+		blog(LOG_WARNING, "open_btn_changed immediateCloseClicked");
+		immediateCloseClicked = false;
+		return true;
+	}
+	if (obs_property_is_visible(p) && vstPlugin->hasWindowOpen()) { //state is open
+		blog(LOG_WARNING, "open_btn_changed set close btn to visible, open btn to hidden");
+		obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
+		obs_property_set_visible(p, false);
+	}
+	return true;
+}
+
+
 static obs_properties_t *vst_properties(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
 	obs_properties_t *props = obs_properties_create();
-	obs_property_t *  list  = obs_properties_add_list(
-                props, "plugin_path", PLUG_IN_NAME, OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_properties_set_param(props, vstPlugin, NULL);
+
+	obs_property_t *list = obs_properties_add_list(
+	        props, "plugin_path", PLUG_IN_NAME, OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
 	fill_out_plugins(list);
 
-	obs_property_t *open_button = 
-		obs_properties_add_button(props, OPEN_VST_SETTINGS, OPEN_VST_TEXT, open_editor_button_clicked);
+	obs_property_t *open_button =
+	        obs_properties_add_button(props, OPEN_VST_SETTINGS, OPEN_VST_TEXT, open_editor_button_clicked);
 
-	obs_property_t *close_button = 
-		obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
+	obs_property_t *close_button =
+	        obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
 
-	if (vstPlugin->isEditorOpen()) {
-		obs_property_set_visible(open_button, false);
-	} else {
-		obs_property_set_visible(close_button, false);
-	}
+	obs_property_set_visible(close_button, false);
+
+	obs_property_set_modified_callback(open_button, open_btn_changed);
 
 	obs_properties_add_bool(props, OPEN_WHEN_ACTIVE_VST_SETTINGS, OPEN_WHEN_ACTIVE_VST_TEXT);
 

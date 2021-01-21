@@ -23,6 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <Windows.h>
 #elif __linux__
 #include <xcb/xcb.h>
+#elif __APPLE__
+typedef HWND unsigned long;
+typedef void *HANDLE;
 #endif
 
 #include "aeffectx.h"
@@ -30,6 +33,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+
+
 
 struct sync_data {
 	std::mutex              mtx;
@@ -42,7 +47,9 @@ enum WM_USER_MSG {
 	// messages to the main window
 	WM_USER_SET_TITLE = WM_USER + 5,
 	WM_USER_SHOW,
-	WM_USER_CLOSE
+	WM_USER_CLOSE,
+	WM_USER_LOAD_DLL,
+	WM_USER_SETCHUNK
 };
 
 class VSTPlugin;
@@ -57,13 +64,16 @@ public:
 };
 
 class EditorWidget {
-
+	friend class VSTPlugin;
 	VSTPlugin *plugin;
 	AEffect *   m_effect;
-#ifdef __APPLE__
-#elif WIN32
-	HWND m_hwnd;
-#elif __linux__
+	std::string m_title;
+	std::string m_path;
+	bool        needs_to_show_window;
+	HWND        m_hwnd;
+	HANDLE      m_threadStarted;
+	void        createWindow();
+#ifdef __linux__
 	xcb_window_t m_wid;
 #endif
 
@@ -76,10 +86,11 @@ public:
 	void show();
 	void dispatcherClose();
 	void close();
-	void buildEffectContainer(AEffect *effect);
+	void buildEffectContainer();
 
 	void buildEffectContainer_worker();
-
+	void send_setChunk(std::string chunk);
+	void send_loadEffectFromPath(std::string path);
 	void send_setWindowTitle(const char *title);
 	void send_show();
 	void send_close();

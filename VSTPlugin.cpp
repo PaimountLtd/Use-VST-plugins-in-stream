@@ -25,7 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstringt.h>
 #include <functional>
 
-VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
+VSTPlugin::VSTPlugin(obs_source_t *sourceContext)
+        : sourceContext{sourceContext}, effect{nullptr}, is_open{false}, saveWasClicked{false}
 {
 
 	int numChannels = VST_MAX_CHANNELS;
@@ -66,12 +67,14 @@ VSTPlugin::~VSTPlugin()
 void VSTPlugin::loadEffectFromPath(std::string path)
 {
 	if (this->pluginPath.compare(path) != 0) {
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath closing editor first and unloading effect; pluginPath %s != %s", this->pluginPath.c_str(), path.c_str());
 		closeEditor();
-		unloadEffect();
 	}
-
+	
 	if (!effect) {
 		pluginPath = path;
+		blog(LOG_DEBUG, "VSTPlugin:loadEffect from pluginPath %s ", pluginPath.c_str());
+
 		effect     = loadEffect();
 
 		if (!effect) {
@@ -90,6 +93,7 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 			return;
 		}
 
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath effect pointer: %p", effect);
 		effect->dispatcher(effect, effGetEffectName, 0, 0, effectName, 0);
 		effect->dispatcher(effect, effGetVendorString, 0, 0, vendorString, 0);
 
@@ -152,7 +156,6 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 			}
 		}
 	}
-
 	effectStatusMutex.unlock();
 	return audio;
 }
@@ -160,8 +163,10 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 void VSTPlugin::waitDeleteWorker()
 {
 	if (deleteWorker != nullptr) {
-		if (deleteWorker->joinable())
+		if (deleteWorker->joinable()) {
+			blog(LOG_WARNING, "VST Plug-in waitDeleteWorker; waiting on deleteWorker");
 			deleteWorker->join();
+		}
 
 		delete deleteWorker;
 		deleteWorker = nullptr;
@@ -190,22 +195,32 @@ void VSTPlugin::unloadEffect()
 
 bool VSTPlugin::isEditorOpen()
 {
-	return !!editorWidget;
+	return is_open;
+	
+}
+
+bool VSTPlugin::hasWindowOpen()
+{
+	return (editorWidget && editorWidget->m_hwnd != 0);
 }
 
 void VSTPlugin::openEditor()
 {
-	if (effect && !editorWidget) {
+	is_open = true;
+	
+	if (!editorWidget) {
 		editorWidget = new EditorWidget(this);
-		editorWidget->buildEffectContainer(effect);
-		editorWidget->send_setWindowTitle(effectName);
-		editorWidget->send_show();
+		editorWidget->buildEffectContainer();
 	}
+	
+	editorWidget->send_show();
 }
 
 void VSTPlugin::removeEditor() {
-	if (editorWidget->windowWorker.joinable())
+	is_open = false;
+	if (editorWidget->windowWorker.joinable()) {
 		editorWidget->windowWorker.join();
+	}
 
 	delete editorWidget;
 	editorWidget = nullptr;
@@ -213,17 +228,32 @@ void VSTPlugin::removeEditor() {
 
 void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 {
-	if (isEditorOpen()) {
+	is_open = false;
+	if (editorWidget && editorWidget->m_hwnd != 0) {
+		blog(LOG_DEBUG,
+			"VST Plug-in: closeEditor, editor is open", 
+			  effect,
+			  editorWidget 
+		);
+
+		blog(LOG_WARNING, "VST Plug-in: closeEditor, sending close... and creating new delete worker");
+		editorWidget->send_close();
+
 		// Wait the last instance of the delete worker, if any
 		waitDeleteWorker();
 
-		editorWidget->send_close();
 		deleteWorker = new std::thread(std::bind(&VSTPlugin::removeEditor, this));
 
 		if (waitDeleteWorkerOnShutdown) {
 			waitDeleteWorker();
 		}
+		
+	} else {
+		blog(LOG_WARNING,
+			"VST Plug-in: closeEditor, editor is NOT open"
+		);
 	}
+	unloadEffect();
 }
 
 intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
@@ -261,15 +291,29 @@ std::string VSTPlugin::getChunk()
 	cbase64_encodestate encoder;
 	std::string encodedData;
 
-	cbase64_init_encodestate(&encoder);
+	if (chunkData.length()) {
+		return chunkData;
+	}
 
 	if (!effect) {
+		blog(LOG_WARNING, "getChunk, no effect");
 		return "";
 	}
 
+	cbase64_init_encodestate(&encoder);
+
 	if (effect->flags & effFlagsProgramChunks) {
 		void *buf = nullptr;
-		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
+		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
+
+		if (!buf) {
+			blog(LOG_WARNING, "VST Plug-in: Failed to get parameters, try to get preset");
+			chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
+		}
+		if (!buf) {
+			blog(LOG_WARNING, "VST Plug-in: Failed to get preset");
+			return "";
+		}
 
 		encodedData.resize(cbase64_calc_encoded_length(chunkSize));
 
@@ -281,6 +325,7 @@ std::string VSTPlugin::getChunk()
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
 
+		encodedData = this->pluginPath + "|" + encodedData;
 		return encodedData;
 	} else {
 		std::vector<float> params;
@@ -301,25 +346,40 @@ std::string VSTPlugin::getChunk()
 			&encoder);
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
+		encodedData = this->pluginPath + "|" + encodedData;
 		return encodedData;
 	}
 }
 
 void VSTPlugin::setChunk(std::string data)
 {
+	chunkData = "";
 	cbase64_decodestate decoder;
 	cbase64_init_decodestate(&decoder);
 	std::string decodedData;
-
-	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
-	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
 
 	if (!effect) {
 		return;
 	}
 
+	size_t      pathPos = data.find_first_of('|');
+	if (pathPos == std::string::npos) {
+		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s. Chunk doesn't contain path", this->pluginPath);
+		return;
+	}
+	std::string path = data.substr(0, pathPos);
+	if (path == data || path != this->pluginPath) {
+		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s", this->pluginPath);
+		return;
+	}
+	data = data.substr(pathPos+1);
+
+	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
+	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
+
+	
 	if (effect->flags & effFlagsProgramChunks) {
-		effect->dispatcher(effect, effSetChunk, 1, decodedData.length(), &decodedData[0], 0);
+		effect->dispatcher(effect, effSetChunk, 0, decodedData.length(), &decodedData[0], 0);
 	} else {
 		const char * p_chars  = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);
