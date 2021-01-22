@@ -22,7 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define CBASE64_IMPLEMENTATION
 #include "cbase64.h"
+#ifdef WIN32
 #include <cstringt.h>
+#endif
 #include <functional>
 
 VSTPlugin::VSTPlugin(obs_source_t *sourceContext)
@@ -364,12 +366,12 @@ void VSTPlugin::setChunk(std::string data)
 
 	size_t      pathPos = data.find_first_of('|');
 	if (pathPos == std::string::npos) {
-		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s. Chunk doesn't contain path", this->pluginPath);
+		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s. Chunk doesn't contain path", this->pluginPath.c_str());
 		return;
 	}
 	std::string path = data.substr(0, pathPos);
 	if (path == data || path != this->pluginPath) {
-		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s", this->pluginPath);
+		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s", this->pluginPath.c_str());
 		return;
 	}
 	data = data.substr(pathPos+1);
