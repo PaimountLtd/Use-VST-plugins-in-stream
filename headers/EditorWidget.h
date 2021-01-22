@@ -24,8 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #elif __linux__
 #include <xcb/xcb.h>
 #elif __APPLE__
-typedef HWND unsigned long;
-typedef void *HANDLE;
+typedef unsigned long HWND;
+typedef void * HANDLE;
 #endif
 
 #include "aeffectx.h"
@@ -40,16 +40,6 @@ struct sync_data {
 	std::mutex              mtx;
 	std::condition_variable cv;
 	bool                    ran = false;
-};
-
-enum WM_USER_MSG {
-	// Start at index user + 5 because some plugins were causing issues when sending invalid
-	// messages to the main window
-	WM_USER_SET_TITLE = WM_USER + 5,
-	WM_USER_SHOW,
-	WM_USER_CLOSE,
-	WM_USER_LOAD_DLL,
-	WM_USER_SETCHUNK
 };
 
 class VSTPlugin;
