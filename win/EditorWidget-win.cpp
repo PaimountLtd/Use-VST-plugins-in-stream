@@ -288,6 +288,8 @@ void EditorWidget::show()
 {
 	blog(LOG_WARNING, "EditorWidget::show Window");
 	ShowWindow(m_hwnd, SW_SHOW);
+	ShowWindow(m_hwnd, SW_HIDE);
+	ShowWindow(m_hwnd, SW_RESTORE);
 }
 
 void EditorWidget::send_show()

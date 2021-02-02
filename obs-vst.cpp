@@ -40,7 +40,6 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-vst", "en-US")
 
 bool isUpdateFromCreate      = false;
 bool isUpdateFromCloseEditor = false;
-bool immediateCloseClicked   = false;
 
 static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
@@ -60,7 +59,6 @@ static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *
 static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
 	isUpdateFromCloseEditor = true;
-	immediateCloseClicked   = true;
 
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 	blog(LOG_WARNING, "Close editor btn clicked");
@@ -303,16 +301,19 @@ static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_dat
 		return true;
 	}
 
-	if (immediateCloseClicked) {
-		blog(LOG_WARNING, "open_btn_changed immediateCloseClicked");
-		immediateCloseClicked = false;
-		return true;
-	}
-	if (obs_property_is_visible(p) && vstPlugin->hasWindowOpen()) { //state is open
-		blog(LOG_WARNING, "open_btn_changed set close btn to visible, open btn to hidden");
+	if (vstPlugin->hasWindowOpen()) {
+		blog(LOG_WARNING, "open_btn_changed has window open");
 		obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
-		obs_property_set_visible(p, false);
+	} else {
+		blog(LOG_WARNING, "open_btn_changed has window closed");
 	}
+	if (obs_property_is_visible(p) && (vstPlugin->hasWindowOpen() || vstPlugin->isEditorOpen())) {
+		obs_property_set_visible(p, false);
+		if (!obs_property_is_visible(obs_properties_get(props, CLOSE_VST_SETTINGS))) {
+			obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
+		}
+	}
+
 	return true;
 }
 
@@ -335,6 +336,7 @@ static obs_properties_t *vst_properties(void *data)
 	obs_property_t *close_button =
 	        obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
 
+	obs_property_set_visible(open_button, true);
 	obs_property_set_visible(close_button, false);
 
 	obs_property_set_modified_callback(open_button, open_btn_changed);
