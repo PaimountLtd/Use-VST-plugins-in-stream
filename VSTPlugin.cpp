@@ -97,19 +97,32 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 
 		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath effect pointer: %p", effect);
 		effect->dispatcher(effect, effGetEffectName, 0, 0, effectName, 0);
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath after getName");
+
 		effect->dispatcher(effect, effGetVendorString, 0, 0, vendorString, 0);
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath after getVendorString");
+
 
 		effect->dispatcher(effect, effOpen, 0, 0, nullptr, 0.0f);
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath after effOpen");
 
 		// Set some default properties
-		size_t sampleRate = audio_output_get_sample_rate(obs_get_audio());
+		//size_t sampleRate = audio_output_get_sample_rate(obs_get_audio());
+		size_t sampleRate = 44100;
+		blog(LOG_DEBUG, "Sample rate: %ul", sampleRate);
 		effect->dispatcher(effect, effSetSampleRate, 0, 0, nullptr, sampleRate);
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath after effSetSampleRate");
+
 		int blocksize = BLOCK_SIZE;
 		effect->dispatcher(effect, effSetBlockSize, 0, blocksize, nullptr, 0.0f);
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath after effSetBlockSize");
 
 		effect->dispatcher(effect, effMainsChanged, 0, 1, nullptr, 0);
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath after effMainsChanged");
+
 
 		effectReady = true;
+		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath OK");
 
 		if (openInterfaceWhenActive) {
 			openEditor();

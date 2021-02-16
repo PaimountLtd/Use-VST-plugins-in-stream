@@ -40,7 +40,6 @@ class VSTPlugin {
 	friend class EditorWidget;
 	AEffect *     effect = nullptr;
 	obs_source_t *sourceContext;
-	std::string   pluginPath;
 
 	float **inputs;
 	float **outputs;
@@ -51,14 +50,16 @@ public:
 	EditorWidget *editorWidget = nullptr;
 	bool          saveWasClicked;
 	std::string   chunkData;
+	char          effectName[64];
+	std::string   pluginPath;
+	intptr_t hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt);
 
 private:
 	bool effectReady = false;
 	std::mutex effectStatusMutex;
-
 	std::string sourceName;
 	std::string filterName;
-	char        effectName[64];
+	
 	// Remove below... or comment out
 	char vendorString[64];
 
@@ -90,7 +91,6 @@ private:
 		}
 	}
 
-	intptr_t hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt);
 
 public:
 	VSTPlugin(obs_source_t *sourceContext);

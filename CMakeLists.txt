@@ -1,8 +1,3 @@
-if(DISABLE_UI)
-	message(STATUS "UI disabled,so vst plugin disabled")
-	return()
-endif()
-
 project(obs-vst)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -36,6 +31,14 @@ set(obs-vst_SOURCES
 	VSTPlugin.cpp
 	EditorWidget.cpp)
 
+set(slobs-vst_SOURCES
+	EditorWidget.cpp
+	win/SlobsVstProcess.cpp
+	win/VSTPlugin-win.cpp
+	win/EditorWidget-win.cpp
+	VSTPlugin.cpp
+	)
+
 if(APPLE)
 	list(APPEND obs-vst_SOURCES
 		mac/VSTPlugin-osx.mm
@@ -44,7 +47,9 @@ if(APPLE)
 elseif(WIN32)
 	list(APPEND obs-vst_SOURCES
 		win/VSTPlugin-win.cpp
-		win/EditorWidget-win.cpp)
+		win/EditorWidget-win.cpp
+		win/SlobsVstProcessLauncher.cpp
+		)
 
 elseif("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
 	list (APPEND obs-vst_SOURCES
@@ -55,12 +60,21 @@ endif()
 list(APPEND obs-vst_HEADERS
 	headers/vst-plugin-callbacks.hpp
 	headers/EditorWidget.h
+	headers/SlobsVstProcessLauncher.h
 	headers/VSTPlugin.h)
 
 add_library(obs-vst MODULE
 	${obs-vst_SOURCES}
 	${obs-vst_HEADERS}
 	${vst-HEADER})
+
+list(APPEND slobs-vst_HEADERS
+	headers/vst-plugin-callbacks.hpp
+	headers/VSTPlugin.h
+	headers/EditorWidget.h
+)
+
+add_executable(slobs-vst WIN32 ${slobs-vst_SOURCES} ${slobs-vst_HEADERS} ${vst-HEADER})
 
 target_link_libraries(obs-vst
 	libobs)
@@ -78,5 +92,8 @@ if (WIN32)
 	target_link_libraries(obs-vst 
 		Dwmapi)
 endif(WIN32)
+
+target_link_libraries(slobs-vst libobs)
+set_target_properties(slobs-vst PROPERTIES FOLDER "plugins")
 
 install_obs_plugin_with_data(obs-vst data)

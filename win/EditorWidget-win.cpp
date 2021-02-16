@@ -27,7 +27,7 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 	if (!hWnd)
 		return NULL;
 
-	//blog(LOG_WARNING, "EditorWidget: EffectWindowProc, uMsg: %u", uMsg);
+	// blog(LOG_WARNING, "EditorWidget: EffectWindowProc, uMsg: %u", uMsg);
 	VSTPlugin *plugin = (VSTPlugin *)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
 	switch (uMsg) {
