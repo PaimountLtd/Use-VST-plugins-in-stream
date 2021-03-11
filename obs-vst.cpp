@@ -111,14 +111,21 @@ static void vst_update(void *data, obs_data_t *settings)
 		vstPlugin->send_loadEffectFromPath(std::string(path));
 
 		// Load chunk only when creating the filter
-		const char *chunkData = obs_data_get_string(settings, "chunk_data");
+		const char *chunkData = obs_data_get_string(settings, "chunk_data_v2");
+		if (chunkData == NULL || strlen(chunkData) == 0) {
+			const char *old_chunkData = obs_data_get_string(settings, "chunk_data");
+			std::string new_chunk_data = std::string(path) + std::string("|") + std::string(old_chunkData) ;
+			obs_data_set_string(settings, "chunk_data_v2", new_chunk_data.c_str());
+			obs_data_set_string(settings, "chunk_data", "");
+			chunkData = obs_data_get_string(settings, "chunk_data_v2");
+		}
 		blog(LOG_DEBUG, "Loading chunk for filter %s", chunkData);
 
 		if (chunkData && strlen(chunkData) > 0) {
 			vstPlugin->send_setChunk(std::string(chunkData));
 		} else {
 			// If VST plugin was loaded after choosing a new one, reset chunk
-			obs_data_set_string(settings, "chunk_data", "");
+			obs_data_set_string(settings, "chunk_data_v2", "");
 		}
 	} else {
 		blog(LOG_WARNING, "obs-vst not loading path %s because same path or editor still open", path);
@@ -128,7 +135,7 @@ static void vst_update(void *data, obs_data_t *settings)
 
 	if (isUpdateFromCloseEditor) {
 		blog(LOG_WARNING, "obs-vst update from closed editor: %s", vstPlugin->getChunk().c_str());
-		obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
+		obs_data_set_string(settings, "chunk_data_v2", vstPlugin->getChunk().c_str());
 		isUpdateFromCloseEditor = false;
 	}
 }
@@ -148,7 +155,7 @@ static void vst_save(void *data, obs_data_t *settings)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
-	obs_data_set_string(settings, "chunk_data", vstPlugin->getChunk().c_str());
+	obs_data_set_string(settings, "chunk_data_v2", vstPlugin->getChunk().c_str());
 }
 
 static struct obs_audio_data *vst_filter_audio(void *data, struct obs_audio_data *audio)
