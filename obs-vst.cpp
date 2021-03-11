@@ -112,9 +112,10 @@ static void vst_update(void *data, obs_data_t *settings)
 
 		// Load chunk only when creating the filter
 		const char *chunkData = obs_data_get_string(settings, "chunk_data_v2");
+		std::string new_chunk_data = "";
 		if (chunkData == NULL || strlen(chunkData) == 0) {
 			const char *old_chunkData = obs_data_get_string(settings, "chunk_data");
-			std::string new_chunk_data = std::string(path) + std::string("|") + std::string(old_chunkData) ;
+			new_chunk_data = std::string(path) + std::string("|") + std::string(old_chunkData) ;
 			obs_data_set_string(settings, "chunk_data_v2", new_chunk_data.c_str());
 			obs_data_set_string(settings, "chunk_data", "");
 			chunkData = new_chunk_data.c_str();
