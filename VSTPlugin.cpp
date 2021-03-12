@@ -364,17 +364,22 @@ void VSTPlugin::setChunk(std::string data)
 		return;
 	}
 
-	size_t      pathPos = data.find_first_of('|');
-	if (pathPos == std::string::npos) {
+	size_t      delimiterPos = data.find_last_of('|');
+	if (delimiterPos == std::string::npos) {
 		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s. Chunk doesn't contain path", this->pluginPath.c_str());
 		return;
 	}
-	std::string path = data.substr(0, pathPos);
+	std::string path = data.substr(0, delimiterPos);
+	size_t      secondPos = path.find_first_of('|');
+	if (secondPos != std::string::npos) {
+		path = path.substr(0, secondPos);
+	}
+
 	if (path == data || path != this->pluginPath) {
 		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s", this->pluginPath.c_str());
 		return;
 	}
-	data = data.substr(pathPos+1);
+	data = data.substr(delimiterPos+1);
 
 	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
 	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
