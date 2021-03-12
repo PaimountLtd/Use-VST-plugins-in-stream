@@ -304,7 +304,7 @@ std::string VSTPlugin::getChunk()
 
 	if (effect->flags & effFlagsProgramChunks) {
 		void *buf = nullptr;
-				intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
+		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
 
 		if (!buf) {
 			blog(LOG_WARNING, "VST Plug-in: Failed to get parameters, try to get preset");
