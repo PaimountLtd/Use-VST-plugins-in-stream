@@ -94,7 +94,7 @@ public:
 	void buildEffectContainer();
 
 	void buildEffectContainer_worker();
-	void send_setChunk(std::string chunk);
+	void send_setChunk();
 	void send_loadEffectFromPath(std::string path);
 	void send_setWindowTitle(const char *title);
 	void send_show();
