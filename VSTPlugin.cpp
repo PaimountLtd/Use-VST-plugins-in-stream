@@ -253,7 +253,6 @@ void VSTPlugin::closeEditor(bool waitDeleteWorkerOnShutdown)
 			"VST Plug-in: closeEditor, editor is NOT open"
 		);
 	}
-	unloadEffect();
 }
 
 intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
@@ -284,16 +283,28 @@ intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index,
 	return result;
 }
 
-std::string VSTPlugin::getChunk()
+std::string VSTPlugin::getChunk(ChunkType type, bool force)
 {
+	if (!force) {
+		switch(type) {
+			case ChunkType::Bank:
+				if (chunkDataBank.size()>0)
+					return chunkDataBank;
+			break;
+			case ChunkType::Program:
+				if (chunkDataProgram.size()>0)
+					return chunkDataProgram;
+			break;
+			case ChunkType::Parameter:
+				if (chunkDataParameter.size()>0)
+					return chunkDataParameter;
+			break;
+		};
+	}
+
 	cbase64_encodestate encoder;
 	std::string encodedData;
-	blog(LOG_WARNING, "VST Plug-in: getChunk started");
-
-	if (chunkData.length()) {
-		blog(LOG_WARNING, "VST Plug-in: getChunk, already had a chunk %s", chunkData.c_str());
-		return chunkData;
-	}
+	blog(LOG_INFO, "VST Plug-in: getChunk started");
 
 	if (!effect) {
 		blog(LOG_WARNING, "VST Plug-in: getChunk, no effect loaded");
@@ -302,16 +313,12 @@ std::string VSTPlugin::getChunk()
 
 	cbase64_init_encodestate(&encoder);
 
-	if (effect->flags & effFlagsProgramChunks) {
+	if (effect->flags & effFlagsProgramChunks && type != ChunkType::Parameter) {
 		void *buf = nullptr;
-		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
+		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, type == ChunkType::Bank ? 0 : 1, 0, &buf, 0.0);
 
 		if (!buf) {
-			blog(LOG_WARNING, "VST Plug-in: getChunk failed to get parameters, try to get preset");
-			chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
-		}
-		if (!buf) {
-			blog(LOG_WARNING, "VST Plug-in: getChunk failed to get preset");
+			blog(LOG_WARNING, "VST Plug-in: effGetChunk failed");
 			return "";
 		}
 
@@ -324,8 +331,6 @@ std::string VSTPlugin::getChunk()
 			&encoder);
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
-
-		encodedData = this->pluginPath + "|" + encodedData;
 		blog(LOG_WARNING, "VST Plug-in: getChunk by effGetChunk complete,  %s", encodedData.c_str());
 		return encodedData;
 	} else {
@@ -347,16 +352,15 @@ std::string VSTPlugin::getChunk()
 			&encoder);
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
-		encodedData = this->pluginPath + "|" + encodedData;
 		blog(LOG_WARNING, "VST Plug-in: getChunk by getParameter complete,  %s", encodedData.c_str());
 		return encodedData;
 	}
 }
 
-void VSTPlugin::setChunk(std::string data)
+void VSTPlugin::setChunk(ChunkType type, std::string & data)
 {
-	blog(LOG_WARNING, "VST Plug-in: setChunk settings for plugin %s.", data.c_str());
-	chunkData = "";
+	blog(LOG_INFO, "VST Plug-in: setChunk called for data %s", data.c_str());
+
 	cbase64_decodestate decoder;
 	cbase64_init_decodestate(&decoder);
 	std::string decodedData;
@@ -366,34 +370,18 @@ void VSTPlugin::setChunk(std::string data)
 		return;
 	}
 
-	size_t      delimiterPos = data.find_last_of('|');
-	if (delimiterPos == std::string::npos) {
-		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s. Chunk doesn't contain path", this->pluginPath.c_str());
-		return;
-	}
-	std::string path = data.substr(0, delimiterPos);
-	size_t      secondPos = path.find_first_of('|');
-	if (secondPos != std::string::npos) {
-		path = path.substr(0, secondPos);
-	}
-
-	if (path == data || path != this->pluginPath) {
+	if ( this->chunkDataPath != this->pluginPath) {
 		blog(LOG_WARNING, "VST Plug-in: setChunk Invalid chunk settings for plugin. Path missmatch.");
 		return;
 	}
-	data = data.substr(delimiterPos+1);
 
 	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
 	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
-
+	data = "";
 	
-	if (effect->flags & effFlagsProgramChunks) {
-		effect->dispatcher(effect, effBeginSetProgram, 0, 0, NULL, 0.0);
-
-		auto ret = effect->dispatcher(effect, effSetChunk, 1, decodedData.length(), &decodedData[0], 0.0);
+	if (effect->flags & effFlagsProgramChunks && type != ChunkType::Parameter) {
+		auto ret = effect->dispatcher(effect, effSetChunk, type == ChunkType::Bank ? 0 : 1, decodedData.length(), &decodedData[0], 0.0);
 		blog(LOG_WARNING, "VST Plug-in: setChunk get %08X from effSetChunk", ret);
-
-		effect->dispatcher(effect, effEndSetProgram, 0, 0, NULL, 0.0);
 	} else {
 		const char * p_chars  = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);

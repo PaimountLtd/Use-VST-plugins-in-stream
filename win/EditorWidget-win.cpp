@@ -167,7 +167,9 @@ void EditorWidget::buildEffectContainer_worker()
 				if (shutdown) {
 					continue;
 				}
-				this->plugin->chunkData = this->plugin->getChunk();
+				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
+				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
+				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter, true);
 				close();
 				dispatcherClose();
 				shutdown = true;
@@ -186,9 +188,9 @@ void EditorWidget::buildEffectContainer_worker()
 					this->createWindow();
 				}
 			} else if (msg.message == WM_USER_SETCHUNK) {
-				shared_ptr<string> chunk_str = make_shared<string>(*reinterpret_cast<string *>(msg.wParam));
-				const char *chunk = chunk_str->c_str();
-				plugin->setChunk(chunk);
+				plugin->setChunk(ChunkType::Parameter, plugin->chunkDataParameter);
+				plugin->setChunk(ChunkType::Program, plugin->chunkDataProgram);
+				plugin->setChunk(ChunkType::Bank, plugin->chunkDataBank);
 			}
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -198,8 +200,8 @@ void EditorWidget::buildEffectContainer_worker()
 	return;
 }
 
-void EditorWidget::send_setChunk(string chunk) {
-	blog(LOG_WARNING, "EditorWidget: send_setChunk , path: %s", chunk.c_str());
+void EditorWidget::send_setChunk() {
+	blog(LOG_WARNING, "EditorWidget: send_setChunk");
 
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
@@ -210,7 +212,7 @@ void EditorWidget::send_setChunk(string chunk) {
 	
 	PostThreadMessage(GetThreadId(windowWorker.native_handle()),
 	                  WM_USER_SETCHUNK,
-	                  reinterpret_cast<WPARAM>(new string(chunk.c_str())),
+	                  0,
 	                  0);
 			 
 }

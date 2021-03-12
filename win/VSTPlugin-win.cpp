@@ -94,9 +94,9 @@ void VSTPlugin::send_loadEffectFromPath(std::string path) {
 	editorWidget->send_loadEffectFromPath(path);
 }
 
-void VSTPlugin::send_setChunk(std::string chunk)
+void VSTPlugin::send_setChunk()
 {
-	editorWidget->send_setChunk(chunk);
+	editorWidget->send_setChunk();
 }
 
 void VSTPlugin::send_unloadEffect() {

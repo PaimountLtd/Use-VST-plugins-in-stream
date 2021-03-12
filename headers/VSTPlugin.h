@@ -36,6 +36,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 class EditorWidget;
 
+enum class ChunkType { Bank, Program, Parameter };
+
 class VSTPlugin {
 	friend class EditorWidget;
 	AEffect *     effect = nullptr;
@@ -50,7 +52,10 @@ public:
 	AEffect *loadEffect();
 	EditorWidget *editorWidget = nullptr;
 	bool          saveWasClicked;
-	std::string   chunkData;
+	std::string chunkDataBank;
+	std::string chunkDataProgram;
+	std::string chunkDataParameter;
+	std::string chunkDataPath;
 
 private:
 	bool effectReady = false;
@@ -107,9 +112,9 @@ public:
 	void            openEditor();
 	void            removeEditor();
 	void            closeEditor(bool waitDeleteWorkerOnShutdown = false);
-	std::string     getChunk();
-	void            send_setChunk(std::string data);
-	void            setChunk(std::string data);
+	std::string     getChunk(ChunkType type, bool force = false);
+	void            send_setChunk();
+	void            setChunk(ChunkType type, std::string & data);
 	void            setProgram(const int programNumber);
 	int             getProgram();
 	void            getSourceNames();
