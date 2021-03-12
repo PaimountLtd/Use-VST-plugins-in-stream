@@ -31,7 +31,7 @@ AEffect *VSTPlugin::loadEffect()
 	AEffect *plugin = nullptr;
 	std::string dir    = pluginPath;
 
-	blog(LOG_WARNING, "VSTPlugin dir: %s", dir.c_str());
+	blog(LOG_WARNING, "VST Plug-in: path %s", dir.c_str());
 
 	while (dir.back() != '/')
 		dir.pop_back();
@@ -52,20 +52,16 @@ AEffect *VSTPlugin::loadEffect()
 
 		// Display the error message and exit the process
 		if (errorCode == ERROR_BAD_EXE_FORMAT) {
-			blog(LOG_WARNING,
-			     "Could not open library, "
-			     "wrong architecture.");
+			blog(LOG_WARNING, "VST Plug-in: Could not open library, wrong architecture.");
 		} else {
-			blog(LOG_WARNING,
-			     "Failed trying to load VST from '%s'"
-			     ", error %d\n",
+			blog(LOG_WARNING, "VST Plug-in: Failed trying to load VST from '%s', error %d\n",
 			     pluginPath.c_str(),
 			     GetLastError());
 		}
 		return nullptr;
 	}
 
-	blog(LOG_WARNING, "Opening main entry point from plugin path %s", pluginPath.c_str());
+	blog(LOG_WARNING, "VST Plug-in: Opening main entry point from plugin path %s", pluginPath.c_str());
 	vstPluginMain mainEntryPoint = (vstPluginMain)GetProcAddress(dllHandle, "VSTPluginMain");
 
 	if (mainEntryPoint == nullptr) {
@@ -77,7 +73,7 @@ AEffect *VSTPlugin::loadEffect()
 	}
 
 	if (mainEntryPoint == nullptr) {
-		blog(LOG_WARNING, "Couldn't get a pointer to plug-in's main()");
+		blog(LOG_WARNING, "VST Plug-in: Couldn't get a pointer to plug-in's main()");
 		unloadLibrary();
 		return nullptr;
 	}
@@ -85,7 +81,7 @@ AEffect *VSTPlugin::loadEffect()
 	// Instantiate the plug-in
 	plugin       = mainEntryPoint(hostCallback_static);
 	if (plugin == nullptr) {
-		blog(LOG_WARNING, "Failed to get filter object from a plugin");
+		blog(LOG_WARNING, "VST Plug-in: Failed to get filter object from a plugin");
 		unloadLibrary();
 		return nullptr;
 	}
