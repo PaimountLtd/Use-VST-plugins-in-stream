@@ -203,6 +203,9 @@ bool VSTPlugin::isEditorOpen()
 
 bool VSTPlugin::hasWindowOpen()
 {
+	if (editorWidget->hiddenWindow) {
+		return false;
+	}
 	return (editorWidget && editorWidget->m_hwnd != 0);
 }
 
@@ -214,8 +217,17 @@ void VSTPlugin::openEditor()
 		editorWidget = new EditorWidget(this);
 		editorWidget->buildEffectContainer();
 	}
+	blog(LOG_WARNING, "VST Plug-in: openEditor send_show");
 	
 	editorWidget->send_show();
+}
+
+void VSTPlugin::hideEditor()
+{
+	is_open = false;
+	if (editorWidget && editorWidget->m_hwnd != 0) {
+		editorWidget->send_hide();
+	}
 }
 
 void VSTPlugin::removeEditor() {

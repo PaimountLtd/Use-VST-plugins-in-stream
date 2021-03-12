@@ -62,6 +62,7 @@ void EditorWidget::buildEffectContainer()
 }
 
 void EditorWidget::createWindow() {
+	hiddenWindow = false;
 	if (m_hwnd) {
 		show();
 		return;
@@ -162,8 +163,14 @@ void EditorWidget::buildEffectContainer_worker()
 					needs_to_show_window = true;
 					continue;
 				}
+				blog(LOG_WARNING, "EditorWidget Showing window");
+				
 				this->createWindow();
-			} else if (msg.message == WM_USER_CLOSE) {
+			} else if (msg.message == WM_USER_HIDE) {
+				hiddenWindow = true;
+				ShowWindow(m_hwnd, SW_HIDE);
+			}
+			else if (msg.message == WM_USER_CLOSE) {
 				if (shutdown) {
 					continue;
 				}
@@ -195,6 +202,7 @@ void EditorWidget::buildEffectContainer_worker()
 		}
 
 	}
+	ResetEvent(m_threadStarted);
 	return;
 }
 
@@ -265,6 +273,24 @@ void EditorWidget::close()
 	m_hwnd = nullptr;
 }
 
+void EditorWidget::send_hide()
+{
+	blog(LOG_WARNING, "EditorWidget::send_hide");
+
+	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
+	                                INFINITE);       // indefinite wait
+	blog(LOG_WARNING, "After wait single");
+	if (res != WAIT_OBJECT_0) {
+		blog(LOG_WARNING, "EditorWidget::send_hide WaitForSingleObject failed: %ul", res);
+		return;
+	}
+	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_HIDE, 0, 0);
+	if (!retMsg) {
+		DWORD dw = GetLastError();
+		blog(LOG_WARNING, "EditorWidget::send_hide, getLastError: %lu", dw);
+	}
+}
+
 void EditorWidget::send_close()
 {
 	sync_data sd;
@@ -298,6 +324,7 @@ void EditorWidget::send_show()
 
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
+	blog(LOG_WARNING, "After wait single");
 	if (res != WAIT_OBJECT_0) {
 		blog(LOG_WARNING, "EditorWidget::send_show WaitForSingeObject failed: %ul", res);
 		return;

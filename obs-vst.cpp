@@ -63,7 +63,7 @@ static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t 
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 	blog(LOG_WARNING, "Close editor btn clicked");
 
-	vstPlugin->closeEditor();
+	vstPlugin->hideEditor();
 
 	UNUSED_PARAMETER(property);
 
@@ -104,10 +104,16 @@ static void vst_update(void *data, obs_data_t *settings)
 	}
 
 	if (load_vst) {
+		// unload previous effect only when changing
+		if (vstPlugin->getPluginPath().compare(std::string(path)) != 0) {
+			vstPlugin->closeEditor();
+			vstPlugin->unloadEffect();
+		}
 		if (!vstPlugin->editorWidget) {
 			vstPlugin->editorWidget = new EditorWidget(vstPlugin);
 			vstPlugin->editorWidget->buildEffectContainer();
 		}
+		
 		vstPlugin->send_loadEffectFromPath(std::string(path));
 
 		// Load chunk only when creating the filter

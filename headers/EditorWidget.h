@@ -51,7 +51,8 @@ enum WM_USER_MSG {
 	WM_USER_SHOW,
 	WM_USER_CLOSE,
 	WM_USER_LOAD_DLL,
-	WM_USER_SETCHUNK
+	WM_USER_SETCHUNK,
+	WM_USER_HIDE
 };
 
 #endif
@@ -83,7 +84,7 @@ class EditorWidget {
 
 public:
 	std::thread windowWorker;
-
+	bool        hiddenWindow;
 	EditorWidget(VSTPlugin *plugin);
 	virtual ~EditorWidget();
 	void setWindowTitle(const char *title);
@@ -97,6 +98,7 @@ public:
 	void send_loadEffectFromPath(std::string path);
 	void send_setWindowTitle(const char *title);
 	void send_show();
+	void send_hide();
 	void send_close();
 };
 
