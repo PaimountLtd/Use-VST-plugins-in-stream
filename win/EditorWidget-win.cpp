@@ -197,6 +197,7 @@ void EditorWidget::buildEffectContainer_worker()
 		}
 
 	}
+	ResetEvent(m_threadStarted);
 	return;
 }
 
