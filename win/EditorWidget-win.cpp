@@ -32,7 +32,7 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 	switch (uMsg) {
 	case WM_CLOSE: {
-		blog(LOG_WARNING, "EditorWidget: EffectWindowProc, received closeEditor msg");
+		blog(LOG_WARNING, "VST Plug-in: EditorWidget: EffectWindowProc, received closeEditor msg");
 		if (plugin) {
 			plugin->closeEditor();
 		}
@@ -84,16 +84,16 @@ void EditorWidget::createWindow() {
 
 	EnableMenuItem(GetSystemMenu(m_hwnd, FALSE), SC_CLOSE, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
 
-	blog(LOG_WARNING, "EditorWidget::m_effect->dispatcher addr: %p", m_effect->dispatcher);
+	blog(LOG_WARNING, "EditorWidget: get dispatcher addr: %p", m_effect->dispatcher);
 
 	m_effect->dispatcher(m_effect, effEditOpen, 0, 0, m_hwnd, 0);
 
-	blog(LOG_WARNING, "EditorWidget after effEditOpen");
+	blog(LOG_WARNING, "EditorWidget: after effEditOpen");
 
 	m_effect->dispatcher(m_effect, effEditGetRect, 0, 0, &vstRect, 0);
-	blog(LOG_WARNING, "EditorWidget after effEditGetRect");
+	blog(LOG_WARNING, "EditorWidget: after effEditGetRect");
 
-	blog(LOG_WARNING, "EditorWidget::buildEffectContainer_worker before show");
+	blog(LOG_WARNING, "EditorWidget: buildEffectContainer_worker before show");
 	show();
 	if (vstRect) {
 		SetWindowPos(m_hwnd, 0, vstRect->left, vstRect->top, vstRect->right, vstRect->bottom, 0);
@@ -144,13 +144,13 @@ void EditorWidget::buildEffectContainer_worker()
 
 	bool shutdown = false;
 	if (!SetEvent(m_threadStarted)) {
-		blog(LOG_WARNING, "Set Event Failed");
+		blog(LOG_WARNING, "EditorWidget: Set Event Failed");
 	}
 	
 	while (!shutdown && (bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
 	{
 		if (bRet == -1) {
-			blog(LOG_WARNING, "Exit GetMessage loop");
+			blog(LOG_WARNING, "EditorWidget: Exit GetMessage loop");
 			break;
 		} else {
 			if (msg.message == WM_USER_SET_TITLE) {
@@ -158,7 +158,7 @@ void EditorWidget::buildEffectContainer_worker()
 				setWindowTitle(title);
 			} else if (msg.message == WM_USER_SHOW) {
 				if (!m_effect) {
-					blog(LOG_WARNING, "EditorWidget m_effect is NULL");
+					blog(LOG_WARNING, "EditorWidget: m_effect is NULL");
 					needs_to_show_window = true;
 					continue;
 				}
@@ -167,7 +167,9 @@ void EditorWidget::buildEffectContainer_worker()
 				if (shutdown) {
 					continue;
 				}
-				this->plugin->chunkData = this->plugin->getChunk();
+				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
+				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
+				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter, true);
 				close();
 				dispatcherClose();
 				shutdown = true;
@@ -178,7 +180,7 @@ void EditorWidget::buildEffectContainer_worker()
 				plugin->loadEffectFromPath(path);
 				m_effect = plugin->getEffect();
 				if (!m_effect) {
-					blog(LOG_WARNING, "EditorWidget worker effect is NULL");
+					blog(LOG_WARNING, "EditorWidget: worker effect is NULL");
 					this->send_close();
 				}
 				else if (needs_to_show_window) {
@@ -186,9 +188,9 @@ void EditorWidget::buildEffectContainer_worker()
 					this->createWindow();
 				}
 			} else if (msg.message == WM_USER_SETCHUNK) {
-				shared_ptr<string> chunk_str = make_shared<string>(*reinterpret_cast<string *>(msg.wParam));
-				const char *chunk = chunk_str->c_str();
-				plugin->setChunk(chunk);
+				plugin->setChunk(ChunkType::Parameter, plugin->chunkDataParameter);
+				plugin->setChunk(ChunkType::Program, plugin->chunkDataProgram);
+				plugin->setChunk(ChunkType::Bank, plugin->chunkDataBank);
 			}
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -198,30 +200,30 @@ void EditorWidget::buildEffectContainer_worker()
 	return;
 }
 
-void EditorWidget::send_setChunk(string chunk) {
-	blog(LOG_WARNING, "EditorWidget::send_setChunk , path: %s", chunk.c_str());
+void EditorWidget::send_setChunk() {
+	blog(LOG_WARNING, "EditorWidget: send_setChunk");
 
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
 	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_setChunk WaitForSingleObject failed: %ul", res);
+		blog(LOG_WARNING, "EditorWidget: send_setChunk WaitForSingleObject failed: %ul", res);
 		return;
 	}
 	
 	PostThreadMessage(GetThreadId(windowWorker.native_handle()),
 	                  WM_USER_SETCHUNK,
-	                  reinterpret_cast<WPARAM>(new string(chunk.c_str())),
+	                  0,
 	                  0);
 			 
 }
 
 void EditorWidget::send_loadEffectFromPath(string path)
 {
-	blog(LOG_WARNING, "EditorWidget::send_loadEffectFromPath , path: %s", path.c_str());
+	blog(LOG_WARNING, "EditorWidget: send_loadEffectFromPath , path: %s", path.c_str());
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
 	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_loadEffectFromPath WaitForSingleObject failed: %ul", res);
+		blog(LOG_WARNING, "EditorWidget: send_loadEffectFromPath WaitForSingleObject failed: %ul", res);
 		return;
 	}
 	
@@ -241,11 +243,11 @@ void EditorWidget::setWindowTitle(const char *title)
 
 void EditorWidget::send_setWindowTitle(const char *title)
 {
-	blog(LOG_WARNING, "EditorWidget::send_setWindowTitle , title: %s", title);
+	blog(LOG_WARNING, "EditorWidget: send_setWindowTitle , title: %s", title);
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
 	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_setWindowTitle WaitForSingleObject failed: %ul", res);
+		blog(LOG_WARNING, "EditorWidget: send_setWindowTitle WaitForSingleObject failed: %ul", res);
 		return;
 	}
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()),
@@ -254,7 +256,7 @@ void EditorWidget::send_setWindowTitle(const char *title)
 	                  0);
 	if (!retMsg) {
 		DWORD dw = GetLastError();
-		blog(LOG_WARNING, "EditorWidget::send_setWindowTitle, getLastError: %lu", dw);
+		blog(LOG_WARNING, "EditorWidget: send_setWindowTitle, getLastError: %lu", dw);
 	}
 
 }
@@ -268,25 +270,25 @@ void EditorWidget::close()
 void EditorWidget::send_close()
 {
 	sync_data sd;
-	blog(LOG_WARNING, "EditorWidget::send_close");
+	blog(LOG_WARNING, "EditorWidget: send_close called");
 
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                   INFINITE);    // indefinite wait
 	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_close WaitForSingelObject failed: %ul", res);
+		blog(LOG_WARNING, "EditorWidget: send_close WaitForSingelObject failed: %ul", res);
 		return;
 	}
 	
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE, 0, reinterpret_cast<WPARAM>(&sd));
 	if (!retMsg) {
 		DWORD dw = GetLastError();
-		blog(LOG_WARNING, "EditorWidget::send_close, getLastError: %lu", dw);
+		blog(LOG_WARNING, "EditorWidget: send_close, getLastError: %lu", dw);
 	}
 }
 
 void EditorWidget::show()
 {
-	blog(LOG_WARNING, "EditorWidget::show Window");
+	blog(LOG_WARNING, "EditorWidget: show Window");
 	ShowWindow(m_hwnd, SW_SHOW);
 	ShowWindow(m_hwnd, SW_HIDE);
 	ShowWindow(m_hwnd, SW_RESTORE);
@@ -294,18 +296,18 @@ void EditorWidget::show()
 
 void EditorWidget::send_show()
 {
-	blog(LOG_WARNING, "EditorWidget::send_show");
+	blog(LOG_WARNING, "EditorWidget: send_show called");
 
 	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
 	                                INFINITE);       // indefinite wait
 	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_show WaitForSingeObject failed: %ul", res);
+		blog(LOG_WARNING, "EditorWidget: send_show WaitForSingeObject failed: %ul", res);
 		return;
 	}
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_SHOW, 0, 0);
 	if (!retMsg) {
 		DWORD dw = GetLastError();
-		blog(LOG_WARNING, "EditorWidget::send_show, getLastError: %lu", dw);
+		blog(LOG_WARNING, "EditorWidget: send_show, getLastError: %lu", dw);
 	}
 }
 

@@ -79,7 +79,7 @@ void EditorWidget::buildEffectContainer_worker() {
 
 }
 
-void EditorWidget::send_setChunk(std::string chunk) {
+void EditorWidget::send_setChunk() {
 
 }
 
