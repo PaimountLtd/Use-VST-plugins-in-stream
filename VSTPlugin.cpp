@@ -306,11 +306,11 @@ std::string VSTPlugin::getChunk()
 
 	if (effect->flags & effFlagsProgramChunks) {
 		void *buf = nullptr;
-		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
+		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
 
 		if (!buf) {
-			blog(LOG_WARNING, "VST Plug-in: Failed to get parameters, try to get preset");
-			chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
+			blog(LOG_WARNING, "VST Plug-in: getChunk failed to get parameters, try to get preset");
+			chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
 		}
 		if (!buf) {
 			blog(LOG_WARNING, "VST Plug-in: Failed to get preset");
@@ -381,7 +381,12 @@ void VSTPlugin::setChunk(std::string data)
 
 	
 	if (effect->flags & effFlagsProgramChunks) {
-		effect->dispatcher(effect, effSetChunk, 0, decodedData.length(), &decodedData[0], 0);
+		effect->dispatcher(effect, effBeginSetProgram, 0, 0, NULL, 0.0);
+
+		auto ret = effect->dispatcher(effect, effSetChunk, 1, decodedData.length(), &decodedData[0], 0.0);
+		blog(LOG_WARNING, "VST Plug-in: setChunk get %08X from effSetChunk", ret);
+
+		effect->dispatcher(effect, effEndSetProgram, 0, 0, NULL, 0.0);
 	} else {
 		const char * p_chars  = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);
