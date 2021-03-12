@@ -69,21 +69,19 @@ VSTPlugin::~VSTPlugin()
 void VSTPlugin::loadEffectFromPath(std::string path)
 {
 	if (this->pluginPath.compare(path) != 0) {
-		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath closing editor first and unloading effect; pluginPath %s != %s", this->pluginPath.c_str(), path.c_str());
+		blog(LOG_DEBUG, "VST Plug-in: loadEffectfromPath closing editor first and unloading effect; pluginPath %s != %s", this->pluginPath.c_str(), path.c_str());
 		closeEditor();
 	}
 	
 	if (!effect) {
 		pluginPath = path;
-		blog(LOG_DEBUG, "VSTPlugin:loadEffect from pluginPath %s ", pluginPath.c_str());
+		blog(LOG_DEBUG, "VST Plug-in: loadEffectFromPath from pluginPath %s ", pluginPath.c_str());
 
 		effect     = loadEffect();
 
 		if (!effect) {
 			// TODO: alert user of error
-			blog(LOG_WARNING,
-			     "VST Plug-in: Can't load "
-			     "effect!");
+			blog(LOG_WARNING, "VST Plug-in: loadEffectFromPath Can't load effect!");
 			return;
 		}
 
@@ -91,11 +89,11 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 		// If incorrect, then the file either was not loaded properly,
 		// is not a real VST plug-in, or is otherwise corrupt.
 		if (effect->magic != kEffectMagic) {
-			blog(LOG_WARNING, "VST Plug-in's magic number is bad");
+			blog(LOG_WARNING, "VST Plug-in: loadEffectFromPath magic number is bad");
 			return;
 		}
 
-		blog(LOG_DEBUG, "VSTPlugin:loadEffectfromPath effect pointer: %p", effect);
+		blog(LOG_DEBUG, "VST Plug-in: loadEffectFromPath get effect pointer: %p", effect);
 		effect->dispatcher(effect, effGetEffectName, 0, 0, effectName, 0);
 		effect->dispatcher(effect, effGetVendorString, 0, 0, vendorString, 0);
 
@@ -166,7 +164,7 @@ void VSTPlugin::waitDeleteWorker()
 {
 	if (deleteWorker != nullptr) {
 		if (deleteWorker->joinable()) {
-			blog(LOG_WARNING, "VST Plug-in waitDeleteWorker; waiting on deleteWorker");
+			blog(LOG_WARNING, "VST Plug-in: waitDeleteWorker; waiting on deleteWorker");
 			deleteWorker->join();
 		}
 
@@ -273,9 +271,7 @@ intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index,
 		if (wasIdle)
 			filtered = true;
 		else {
-			blog(LOG_WARNING,
-			     "VST Plug-in: Future idle calls "
-			     "will not be displayed!");
+			blog(LOG_WARNING,"VST Plug-in: Future idle calls will not be displayed!");
 			wasIdle = true;
 		}
 	}
@@ -292,13 +288,15 @@ std::string VSTPlugin::getChunk()
 {
 	cbase64_encodestate encoder;
 	std::string encodedData;
+	blog(LOG_WARNING, "VST Plug-in: getChunk started");
 
 	if (chunkData.length()) {
+		blog(LOG_WARNING, "VST Plug-in: getChunk, already had a chunk %s", chunkData.c_str());
 		return chunkData;
 	}
 
 	if (!effect) {
-		blog(LOG_WARNING, "getChunk, no effect");
+		blog(LOG_WARNING, "VST Plug-in: getChunk, no effect loaded");
 		return "";
 	}
 
@@ -313,7 +311,7 @@ std::string VSTPlugin::getChunk()
 			chunkSize = effect->dispatcher(effect, effGetChunk, 0, 0, &buf, 0.0);
 		}
 		if (!buf) {
-			blog(LOG_WARNING, "VST Plug-in: Failed to get preset");
+			blog(LOG_WARNING, "VST Plug-in: getChunk failed to get preset");
 			return "";
 		}
 
@@ -328,6 +326,7 @@ std::string VSTPlugin::getChunk()
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
 
 		encodedData = this->pluginPath + "|" + encodedData;
+		blog(LOG_WARNING, "VST Plug-in: getChunk by effGetChunk complete,  %s", encodedData.c_str());
 		return encodedData;
 	} else {
 		std::vector<float> params;
@@ -349,18 +348,21 @@ std::string VSTPlugin::getChunk()
 
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
 		encodedData = this->pluginPath + "|" + encodedData;
+		blog(LOG_WARNING, "VST Plug-in: getChunk by getParameter complete,  %s", encodedData.c_str());
 		return encodedData;
 	}
 }
 
 void VSTPlugin::setChunk(std::string data)
 {
+	blog(LOG_WARNING, "VST Plug-in: setChunk settings for plugin %s.", data.c_str());
 	chunkData = "";
 	cbase64_decodestate decoder;
 	cbase64_init_decodestate(&decoder);
 	std::string decodedData;
 
 	if (!effect) {
+		blog(LOG_WARNING, "VST Plug-in: setChunk effect is not ready yet");
 		return;
 	}
 
@@ -371,7 +373,7 @@ void VSTPlugin::setChunk(std::string data)
 	}
 	std::string path = data.substr(0, pathPos);
 	if (path == data || path != this->pluginPath) {
-		blog(LOG_WARNING, "VST Plug-in: Invalid chunk settings for plugin %s", this->pluginPath.c_str());
+		blog(LOG_WARNING, "VST Plug-in: setChunk Invalid chunk settings for plugin. Path missmatch.");
 		return;
 	}
 	data = data.substr(pathPos+1);
@@ -396,6 +398,7 @@ void VSTPlugin::setChunk(std::string data)
 		std::vector<float> params(p_floats, p_floats + size);
 
 		if (params.size() != (size_t)effect->numParams) {
+			blog(LOG_WARNING, "VST Plug-in: setChunk wrong number of params");
 			return;
 		}
 
@@ -403,20 +406,25 @@ void VSTPlugin::setChunk(std::string data)
 			effect->setParameter(effect, i, params[i]);
 		}
 	}
+	blog(LOG_WARNING, "VST Plug-in: setChunk finished");
 }
 
 void VSTPlugin::setProgram(const int programNumber)
 {
+	blog(LOG_ERROR, "VST Plug-in: setProgram for %d", programNumber);
 	if (programNumber < effect->numPrograms) {
-		effect->dispatcher(effect, effSetProgram, 0, programNumber, NULL, 0.0f);
+		int ret = effect->dispatcher(effect, effSetProgram, 0, programNumber, NULL, 0.0f);
+		blog(LOG_ERROR, "VST Plug-in: setProgram get %d from effSetProgram", ret);
 	} else {
-		blog(LOG_ERROR, "Failed to load program, number was outside possible program range.");
+		blog(LOG_ERROR, "VST Plug-in: setProgram Failed to load program, number was outside possible program range.");
 	}
 }
 
 int VSTPlugin::getProgram()
 {
-	return effect->dispatcher(effect, effGetProgram, 0, 0, NULL, 0.0f);
+	int ret = effect->dispatcher(effect, effGetProgram, 0, 0, NULL, 0.0f);
+	blog(LOG_ERROR, "VST Plug-in: getProgram get %d from effGetProgram", ret);
+	return ret;
 }
 
 void VSTPlugin::getSourceNames()
