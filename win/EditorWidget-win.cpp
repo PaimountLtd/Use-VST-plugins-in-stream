@@ -169,6 +169,9 @@ void EditorWidget::buildEffectContainer_worker()
 			} else if (msg.message == WM_USER_HIDE) {
 				hiddenWindow = true;
 				ShowWindow(m_hwnd, SW_HIDE);
+				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
+				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
+				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter, true);
 			}
 			else if (msg.message == WM_USER_CLOSE) {
 				if (shutdown) {

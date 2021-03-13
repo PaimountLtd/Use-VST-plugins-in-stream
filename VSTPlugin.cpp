@@ -384,6 +384,7 @@ void VSTPlugin::setChunk(ChunkType type, std::string & data)
 
 	if ( this->chunkDataPath != this->pluginPath) {
 		blog(LOG_WARNING, "VST Plug-in: setChunk Invalid chunk settings for plugin. Path missmatch.");
+		data = "";
 		return;
 	}
 
