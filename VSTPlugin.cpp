@@ -201,7 +201,7 @@ bool VSTPlugin::isEditorOpen()
 
 bool VSTPlugin::hasWindowOpen()
 {
-	if (editorWidget->hiddenWindow) {
+	if (editorWidget && editorWidget->hiddenWindow) {
 		return false;
 	}
 	return (editorWidget && editorWidget->m_hwnd != 0);
