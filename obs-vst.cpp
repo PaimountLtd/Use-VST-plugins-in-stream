@@ -177,7 +177,8 @@ static void vst_update(void *data, obs_data_t *settings)
 
 		blog(LOG_DEBUG, "VST Plug-in: Loading chunk for filter %s | %s | %s | %s ", vstPlugin->chunkDataBank.c_str(), vstPlugin->chunkDataProgram.c_str(), vstPlugin->chunkDataParameter.c_str(), vstPlugin->chunkDataPath.c_str());
 
-		if (vstPlugin->chunkDataPath.size() > 0) {
+		if (vstPlugin->chunkDataPath.size() > 0 && isUpdateFromCreate) {
+			isUpdateFromCreate = false;
 			vstPlugin->send_setChunk();
 		}
 	} else {

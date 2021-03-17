@@ -329,7 +329,7 @@ std::string VSTPlugin::getChunk(ChunkType type, bool force)
 		void *buf = nullptr;
 		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, type == ChunkType::Bank ? 0 : 1, 0, &buf, 0.0);
 
-		if (!buf) {
+		if (!buf || chunkSize==0) {
 			blog(LOG_WARNING, "VST Plug-in: effGetChunk failed");
 			return "";
 		}
@@ -373,6 +373,11 @@ std::string VSTPlugin::getChunk(ChunkType type, bool force)
 
 void VSTPlugin::setChunk(ChunkType type, std::string & data)
 {
+	if (data.size() == 0) {
+		blog(LOG_WARNING, "VST Plug-in: setChunk with empty data chunk ignored");
+		return;
+	}
+
 	blog(LOG_INFO, "VST Plug-in: setChunk called for data %s", data.c_str());
 
 	cbase64_decodestate decoder;
