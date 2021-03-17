@@ -169,17 +169,23 @@ void EditorWidget::buildEffectContainer_worker()
 			} else if (msg.message == WM_USER_HIDE) {
 				hiddenWindow = true;
 				ShowWindow(m_hwnd, SW_HIDE);
-				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
-				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
 				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter, true);
+				if (plugin->effect && plugin->effect->numPrograms == 1) {
+					plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
+				} else if (plugin->effect && plugin->effect->numPrograms == 2) {
+					plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
+				}
 			}
 			else if (msg.message == WM_USER_CLOSE) {
 				if (shutdown) {
 					continue;
 				}
-				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
-				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
 				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter, true);
+				if (plugin->effect && plugin->effect->numPrograms == 1) {
+					plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
+				} else if (plugin->effect && plugin->effect->numPrograms == 2) {
+					plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
+				}
 				close();
 				dispatcherClose();
 				shutdown = true;
@@ -199,8 +205,11 @@ void EditorWidget::buildEffectContainer_worker()
 				}
 			} else if (msg.message == WM_USER_SETCHUNK) {
 				plugin->setChunk(ChunkType::Parameter, plugin->chunkDataParameter);
-				plugin->setChunk(ChunkType::Program, plugin->chunkDataProgram);
-				plugin->setChunk(ChunkType::Bank, plugin->chunkDataBank);
+				if (plugin->effect && plugin->effect->numPrograms ==1) {
+					plugin->setChunk(ChunkType::Bank, plugin->chunkDataBank);
+				} else if (plugin->effect && plugin->effect->numPrograms == 2) {
+					plugin->setChunk(ChunkType::Program, plugin->chunkDataProgram);
+				}
 			}
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
