@@ -54,7 +54,7 @@ void EditorWidget::buildEffectContainer()
 	m_threadStarted  = CreateEvent(NULL,              // default security attributes
 	              TRUE,              // manual-reset event
 	              FALSE,             // initial state is nonsignaled
-	              TEXT("ThreadStart") // object name
+	              NULL // object name
 	); 
 
 	m_hwnd       = 0;
