@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BLOCK_SIZE 512
 
 #include <string>
-#include <QDirIterator>
+//#include <QDirIterator>
 #include <obs-module.h>
 #include "aeffectx.h"
 #include "vst-plugin-callbacks.hpp"
@@ -35,8 +35,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 class EditorWidget;
 
-class VSTPlugin : public QObject {
-	Q_OBJECT
+class VSTPlugin {
+	//Q_OBJECT
 
 	AEffect *     effect = nullptr;
 	obs_source_t *sourceContext;
@@ -99,7 +99,7 @@ public:
 	obs_audio_data *process(struct obs_audio_data *audio);
 	bool            openInterfaceWhenActive = false;
 
-public slots:
+//public slots:
 	void openEditor();
 	void closeEditor();
 };

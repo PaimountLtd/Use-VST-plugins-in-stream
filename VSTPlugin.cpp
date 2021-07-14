@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 
 #include "headers/VSTPlugin.h"
+#include <vector>
 
 VSTPlugin::VSTPlugin(obs_source_t *sourceContext) : sourceContext{sourceContext}
 {
@@ -118,10 +119,10 @@ void silenceChannel(float **channelData, int numChannels, long numFrames)
 obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 {
 	if (effect && effectReady) {
-		uint passes = (audio->frames + BLOCK_SIZE - 1) / BLOCK_SIZE;
-		uint extra  = audio->frames % BLOCK_SIZE;
-		for (uint pass = 0; pass < passes; pass++) {
-			uint frames = pass == passes - 1 && extra ? extra : BLOCK_SIZE;
+		uint32_t passes = (audio->frames + BLOCK_SIZE - 1) / BLOCK_SIZE;
+		uint32_t extra  = audio->frames % BLOCK_SIZE;
+		for (uint32_t pass = 0; pass < passes; pass++) {
+			uint32_t frames = pass == passes - 1 && extra ? extra : BLOCK_SIZE;
 			silenceChannel(outputs, VST_MAX_CHANNELS, BLOCK_SIZE);
 
 			float *adata[VST_MAX_CHANNELS];
@@ -165,7 +166,7 @@ void VSTPlugin::unloadEffect()
 void VSTPlugin::openEditor()
 {
 	if (effect && !editorWidget) {
-		editorWidget = new EditorWidget(nullptr, this);
+		editorWidget = new EditorWidget(this);
 		editorWidget->buildEffectContainer(effect);
 
 		if (sourceName.empty()) {
@@ -173,10 +174,10 @@ void VSTPlugin::openEditor()
 		}
 
 		if (filterName.empty()) {
-			editorWidget->setWindowTitle(QString("%1 - %2").arg(sourceName.c_str(), effectName));
+			//editorWidget->setWindowTitle(QString("%1 - %2").arg(sourceName.c_str(), effectName));
 		} else {
-			editorWidget->setWindowTitle(
-			        QString("%1:%2 - %3").arg(sourceName.c_str(), filterName.c_str(), effectName));
+			//editorWidget->setWindowTitle(
+			//        QString("%1:%2 - %3").arg(sourceName.c_str(), filterName.c_str(), effectName));
 		}
 		editorWidget->show();
 	}
@@ -226,8 +227,9 @@ std::string VSTPlugin::getChunk()
 
 		intptr_t chunkSize = effect->dispatcher(effect, effGetChunk, 1, 0, &buf, 0.0);
 
-		QByteArray data = QByteArray((char *)buf, chunkSize);
-		return QString(data.toBase64()).toStdString();
+		//QByteArray data = QByteArray((char *)buf, chunkSize);
+		//return QString(data.toBase64()).toStdString();
+		return "";
 	} else {
 		std::vector<float> params;
 		for (int i = 0; i < effect->numParams; i++) {
@@ -236,9 +238,10 @@ std::string VSTPlugin::getChunk()
 		}
 
 		const char *bytes   = reinterpret_cast<const char *>(&params[0]);
-		QByteArray  data    = QByteArray(bytes, (int)(sizeof(float) * params.size()));
-		std::string encoded = QString(data.toBase64()).toStdString();
-		return encoded;
+		//QByteArray  data    = QByteArray(bytes, (int)(sizeof(float) * params.size()));
+		//std::string encoded = QString(data.toBase64()).toStdString();
+		//return encoded;
+		return "";
 	}
 }
 
@@ -249,29 +252,29 @@ void VSTPlugin::setChunk(std::string data)
 	}
 
 	if (effect->flags & effFlagsProgramChunks) {
-		QByteArray base64Data = QByteArray(data.c_str(), (int)data.length());
-		QByteArray chunkData  = QByteArray::fromBase64(base64Data);
-		void *     buf        = nullptr;
-		buf                   = chunkData.data();
-		effect->dispatcher(effect, effSetChunk, 1, chunkData.length(), buf, 0);
+		//QByteArray base64Data = QByteArray(data.c_str(), (int)data.length());
+		//QByteArray chunkData  = QByteArray::fromBase64(base64Data);
+		//void *     buf        = nullptr;
+		//buf                   = chunkData.data();
+		//effect->dispatcher(effect, effSetChunk, 1, chunkData.length(), buf, 0);
 	} else {
-		QByteArray base64Data = QByteArray(data.c_str(), (int)data.length());
-		QByteArray paramData  = QByteArray::fromBase64(base64Data);
+		//QByteArray base64Data = QByteArray(data.c_str(), (int)data.length());
+		//QByteArray paramData  = QByteArray::fromBase64(base64Data);
 
-		const char * p_chars  = paramData.data();
-		const float *p_floats = reinterpret_cast<const float *>(p_chars);
+		//const char * p_chars  = paramData.data();
+		//const float *p_floats = reinterpret_cast<const float *>(p_chars);
 
-		int size = paramData.length() / sizeof(float);
+		//int size = paramData.length() / sizeof(float);
 
-		std::vector<float> params(p_floats, p_floats + size);
+		//std::vector<float> params(p_floats, p_floats + size);
 
-		if (params.size() != (size_t)effect->numParams) {
-			return;
-		}
+		//if (params.size() != (size_t)effect->numParams) {
+		//	return;
+		//}
 
-		for (int i = 0; i < effect->numParams; i++) {
-			effect->setParameter(effect, i, params[i]);
-		}
+		//for (int i = 0; i < effect->numParams; i++) {
+		//	effect->setParameter(effect, i, params[i]);
+		//}
 	}
 }
 

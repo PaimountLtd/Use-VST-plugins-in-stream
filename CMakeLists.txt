@@ -12,7 +12,6 @@ project(obs-vst)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(CMAKE_AUTOMOC TRUE)
-find_package(Qt5Widgets REQUIRED)
 
 option(VST_USE_BUNDLED_HEADERS "Build with Bundled Headers" ON)
 
@@ -70,8 +69,7 @@ add_library(obs-vst MODULE
 	${vst-HEADER})
 
 target_link_libraries(obs-vst
-	libobs
-	Qt5::Widgets)
+	libobs)
 
 set_target_properties(obs-vst PROPERTIES FOLDER "plugins")
 

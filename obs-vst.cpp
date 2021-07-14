@@ -17,6 +17,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 
 #include "headers/VSTPlugin.h"
+#include <vector>
+#include <util/platform.h>
+#include <util/dstr.h>
 
 #define OPEN_VST_SETTINGS "open_vst_settings"
 #define CLOSE_VST_SETTINGS "close_vst_settings"
@@ -38,7 +41,8 @@ static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
-	QMetaObject::invokeMethod(vstPlugin, "openEditor");
+	//QMetaObject::invokeMethod(vstPlugin, "openEditor");
+	vstPlugin->openEditor();
 
 	obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), false);
 	obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), true);
@@ -54,7 +58,8 @@ static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t 
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
-	QMetaObject::invokeMethod(vstPlugin, "closeEditor");
+	//QMetaObject::invokeMethod(vstPlugin, "closeEditor");
+	vstPlugin->closeEditor();
 
 	obs_property_set_visible(obs_properties_get(props, OPEN_VST_SETTINGS), true);
 	obs_property_set_visible(obs_properties_get(props, CLOSE_VST_SETTINGS), false);
@@ -73,8 +78,8 @@ static const char *vst_name(void *unused)
 static void vst_destroy(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	QMetaObject::invokeMethod(vstPlugin, "closeEditor");
-	vstPlugin->deleteLater();
+	//QMetaObject::invokeMethod(vstPlugin, "closeEditor");
+	//vstPlugin->deleteLater();
 }
 
 static void vst_update(void *data, obs_data_t *settings)
@@ -126,10 +131,73 @@ static struct obs_audio_data *vst_filter_audio(void *data, struct obs_audio_data
 	return audio;
 }
 
+bool valid_extension(const char *filepath)
+{
+	const char *ext          = os_get_path_extension(filepath);
+	int         filters_size = 1;
+
+#ifdef __APPLE__
+	const char *filters[] = {".vst"};
+#elif WIN32
+	const char *filters[] = {".dll"};
+#elif __linux__
+	const char *filters[] = {".so", ".o"};
+	++filters_size;
+#endif
+
+	for (int i = 0; i < filters_size; ++i) {
+		if (astrcmpi(filters[i], ext) == 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+typedef std::pair<std::string, std::string> vst_data;
+
+static void find_plugins(std::vector<vst_data> &plugin_list, const char *dir_name)
+{
+	os_dir_t * dir = os_opendir(dir_name);
+	os_dirent *ent = os_readdir(dir);
+
+	while (ent != NULL) {
+		std::string path(dir_name);
+
+		if (ent->d_name[0] == '.')
+			goto next_entry;
+
+		path.append("/");
+		path.append(ent->d_name);
+
+		/* If it's a directory, recurse */
+		if (ent->directory) {
+			find_plugins(plugin_list, path.c_str());
+			goto next_entry;
+		}
+
+		/* This works well on Apple since we use *.vst
+		 * for the extension but not for other platforms.
+		 * A Dll dependency will be added even if it's not
+		 * an actual VST plugin. Can't do much about it
+		 * unfortunately unless everyone suddenly decided to
+		 * use a more sane extension. */
+		if (valid_extension(ent->d_name)) {
+			std::string name = ent->d_name;
+			name             = name.substr(0, name.size() - 4);
+			plugin_list.push_back({name, path});
+		}
+
+	next_entry:
+		ent = os_readdir(dir);
+	}
+
+	os_closedir(dir);
+}
+
 static void fill_out_plugins(obs_property_t *list)
 {
-	QStringList dir_list;
-
+	std::vector<std::string> dir_list;
 #ifdef __APPLE__
 	dir_list << "/Library/Audio/Plug-Ins/VST/"
 	         << "~/Library/Audio/Plug-ins/VST/";
@@ -142,12 +210,22 @@ static void fill_out_plugins(obs_property_t *list)
 
 	if (!isWow64) {
 #endif
-		dir_list << qEnvironmentVariable("ProgramFiles") + "/Steinberg/VstPlugins/"
-		         << qEnvironmentVariable("CommonProgramFiles") + "/Steinberg/Shared Components/"
-		         << qEnvironmentVariable("CommonProgramFiles") + "/VST2"
-		         << qEnvironmentVariable("CommonProgramFiles") + "/Steinberg/VST2"
-		         << qEnvironmentVariable("CommonProgramFiles") + "/VSTPlugins/"
-		         << qEnvironmentVariable("ProgramFiles") + "/VSTPlugins/";
+		std::string program_files_path = getenv("ProgramFiles");
+		std::string commong_program_files = getenv("CommonProgramFiles");
+
+		dir_list.push_back(program_files_path + "/Steinberg/VstPlugins/");
+		dir_list.push_back(commong_program_files + "/Steinberg/Shared Components/");
+		dir_list.push_back(commong_program_files + "/VST2");
+		dir_list.push_back(commong_program_files + "/Steinberg/VST2");
+		dir_list.push_back(commong_program_files + "/VSTPlugins/");
+		dir_list.push_back(program_files_path + "/VSTPlugins/");
+
+		//dir_list << qEnvironmentVariable("ProgramFiles") + "/Steinberg/VstPlugins/"
+		//         << qEnvironmentVariable("CommonProgramFiles") + "/Steinberg/Shared Components/"
+		//         << qEnvironmentVariable("CommonProgramFiles") + "/VST2"
+		//         << qEnvironmentVariable("CommonProgramFiles") + "/Steinberg/VST2"
+		//         << qEnvironmentVariable("CommonProgramFiles") + "/VSTPlugins/"
+		//         << qEnvironmentVariable("ProgramFiles") + "/VSTPlugins/";
 #ifndef _WIN64
 	} else {
 		dir_list << qEnvironmentVariable("ProgramFiles(x86)") + "/Steinberg/VstPlugins/"
@@ -186,52 +264,29 @@ static void fill_out_plugins(obs_property_t *list)
 	}
 #endif
 
-	QStringList filters;
+	//QStringList filters;
+	std::vector<std::string> filters;
 
 #ifdef __APPLE__
 	filters << "*.vst";
 #elif WIN32
-	filters << "*.dll";
+	filters.push_back("*.dll");
 #elif __linux__
 	filters << "*.so"
 	        << "*.o";
 #endif
 
-	QStringList vst_list;
+	std::vector<vst_data> vst_list;
 
 	// Read all plugins into a list...
-	for (int a = 0; a < dir_list.size(); ++a) {
-		QDir search_dir(dir_list[a]);
-		search_dir.setNameFilters(filters);
-		QDirIterator it(search_dir, QDirIterator::Subdirectories);
-		while (it.hasNext()) {
-			QString path = it.next();
-			QString name = it.fileName();
-
-#ifdef __APPLE__
-			name.remove(".vst", Qt::CaseInsensitive);
-#elif WIN32
-			name.remove(".dll", Qt::CaseInsensitive);
-#elif __linux__
-			name.remove(".so", Qt::CaseInsensitive);
-			name.remove(".o", Qt::CaseInsensitive);
-#endif
-
-			name.append("=").append(path);
-			vst_list << name;
-		}
+	for (int i = 0; i < dir_list.size(); ++i) {
+		find_plugins(vst_list, dir_list[i].c_str());
 	}
-
-	// Now sort list alphabetically (still case-sensitive though).
-	std::stable_sort(vst_list.begin(), vst_list.end(), std::less<QString>());
 
 	// Now add said list to the plug-in list of OBS
 	obs_property_list_add_string(list, "{Please select a plug-in}", nullptr);
 	for (int b = 0; b < vst_list.size(); ++b) {
-		QString vst_sorted = vst_list[b];
-		obs_property_list_add_string(list,
-		                             vst_sorted.left(vst_sorted.indexOf('=')).toStdString().c_str(),
-		                             vst_sorted.mid(vst_sorted.indexOf('=') + 1).toStdString().c_str());
+		obs_property_list_add_string(list, vst_list[b].first.c_str(), vst_list[b].second.c_str());
 	}
 }
 
