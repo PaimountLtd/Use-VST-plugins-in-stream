@@ -71,6 +71,7 @@ class EditorWidget {
 	HWND windowHandle        = NULL;
 	std::thread windowWorker;
 	bool shutdownWorker      = false;
+	AEffect *   effect;
 #elif __linux__
 
 #endif

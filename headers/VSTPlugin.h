@@ -38,14 +38,11 @@ class EditorWidget;
 class VSTPlugin {
 	//Q_OBJECT
 
-	AEffect *     effect = nullptr;
 	obs_source_t *sourceContext;
 	std::string   pluginPath;
 
 	float **inputs;
 	float **outputs;
-
-	EditorWidget *editorWidget = nullptr;
 
 	AEffect *loadEffect();
 
@@ -87,17 +84,24 @@ class VSTPlugin {
 	intptr_t hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt);
 
 public:
+	AEffect *     effect       = nullptr;
+	EditorWidget *editorWidget = nullptr;
+
+public:
 	VSTPlugin(obs_source_t *sourceContext);
 	~VSTPlugin();
+	void            send_loadEffectFromPath(std::string path);
 	void            loadEffectFromPath(std::string path);
 	void            unloadEffect();
 	std::string     getChunk();
+	void            send_setChunk();
 	void            setChunk(std::string data);
 	void            setProgram(const int programNumber);
 	int             getProgram();
 	void            getSourceNames();
 	obs_audio_data *process(struct obs_audio_data *audio);
 	bool            openInterfaceWhenActive = false;
+	AEffect *       getEffect();
 
 //public slots:
 	void openEditor();

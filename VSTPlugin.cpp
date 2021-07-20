@@ -190,9 +190,9 @@ void VSTPlugin::closeEditor()
 	}
 
 	if (editorWidget) {
-		editorWidget->close();
-		delete editorWidget;
-		editorWidget = nullptr;
+		//editorWidget->close();
+		//delete editorWidget;
+		//editorWidget = nullptr;
 	}
 }
 

@@ -93,11 +93,18 @@ static void vst_update(void *data, obs_data_t *settings)
 	if (strcmp(path, "") == 0) {
 		return;
 	}
-	vstPlugin->loadEffectFromPath(std::string(path));
+	//vstPlugin->loadEffectFromPath(std::string(path));
+	if (!vstPlugin->editorWidget) {
+		vstPlugin->editorWidget = new EditorWidget(vstPlugin);
+		vstPlugin->editorWidget->buildEffectContainer(vstPlugin->effect);
+	}
+
+	vstPlugin->send_loadEffectFromPath(std::string(path));
 
 	const char *chunkData = obs_data_get_string(settings, "chunk_data");
 	if (chunkData && strlen(chunkData) > 0) {
-		vstPlugin->setChunk(std::string(chunkData));
+		//vstPlugin->setChunk(std::string(chunkData));
+		vstPlugin->send_setChunk();
 	}
 }
 

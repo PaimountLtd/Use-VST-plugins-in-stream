@@ -66,6 +66,16 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 void EditorWidget::buildEffectContainer_worker()
 {
+	// set pointer to vst effect for window long
+	LONG_PTR wndPtr = (LONG_PTR)effect;
+	SetWindowLongPtr(windowHandle, -21 /*GWLP_USERDATA*/, wndPtr);
+
+	// QWidget *widget = QWidget::createWindowContainer(QWindow::fromWinId((WId)windowHandle), this);
+	// widget->move(0, 0);
+	// widget->resize(300, 300);
+
+	SetWindowPos(windowHandle, NULL, 0, 0, 300, 300, 0);
+
 	MSG msg;
 	PeekMessage(&msg, windowHandle, WM_USER, WM_USER, PM_NOREMOVE);
 
@@ -110,7 +120,22 @@ void EditorWidget::buildEffectContainer_worker()
 				//const char *       path = path_str->c_str();
 				//m_path                  = path;
 				plugin->loadEffectFromPath(path_str->c_str());
-				//m_effect = plugin->getEffect();
+				effect = plugin->getEffect();
+				effect->dispatcher(effect, effEditOpen, 0, 0, windowHandle, 0);
+
+				VstRect *vstRect = nullptr;
+				effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
+				if (vstRect) {
+					// widget->resize(vstRect->right - vstRect->left, vstRect->bottom -
+					// vstRect->top);
+					SetWindowPos(windowHandle,
+					             NULL,
+					             0,
+					             0,
+					             vstRect->right - vstRect->left,
+					             vstRect->bottom - vstRect->top,
+					             0);
+				}
 				//if (!m_effect) {
 				//	blog(LOG_WARNING, "EditorWidget: worker effect is NULL");
 				//	this->send_close();
@@ -140,30 +165,13 @@ void EditorWidget::buildEffectContainer(AEffect *effect)
 	wcex.lpszClassName = L"Minimal VST host - Guest VST Window Frame";
 	RegisterClassExW(&wcex);
 
+	this->effect = effect;
+
 	const auto style = WS_CAPTION | WS_THICKFRAME | WS_OVERLAPPEDWINDOW;
 	windowHandle =
 	        CreateWindowW(wcex.lpszClassName, TEXT(""), style, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
 
-	// set pointer to vst effect for window long
-	LONG_PTR wndPtr = (LONG_PTR)effect;
-	SetWindowLongPtr(windowHandle, -21 /*GWLP_USERDATA*/, wndPtr);
-
-	//QWidget *widget = QWidget::createWindowContainer(QWindow::fromWinId((WId)windowHandle), this);
-	//widget->move(0, 0);
-	//widget->resize(300, 300);
-
-	SetWindowPos(windowHandle, NULL, 0, 0, 300, 300, 0);
-
-
-	effect->dispatcher(effect, effEditOpen, 0, 0, windowHandle, 0);
-
-	VstRect *vstRect = nullptr;
-	effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
-	if (vstRect) {
-		//widget->resize(vstRect->right - vstRect->left, vstRect->bottom - vstRect->top);
-		SetWindowPos(
-		        windowHandle, NULL, 0, 0, vstRect->right - vstRect->left, vstRect->bottom - vstRect->top, 0);
-	}
+	show();
 
 	shutdownWorker = false;
 	windowWorker = std::thread(std::bind(&EditorWidget::buildEffectContainer_worker, this));

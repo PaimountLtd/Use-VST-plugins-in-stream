@@ -76,3 +76,18 @@ void VSTPlugin::unloadLibrary()
 		dllHandle = nullptr;
 	}
 }
+
+void VSTPlugin::send_loadEffectFromPath(std::string path)
+{
+	editorWidget->send_loadEffectFromPath(path);
+}
+
+void VSTPlugin::send_setChunk()
+{
+	editorWidget->send_setChunk();
+}
+
+AEffect *VSTPlugin::getEffect()
+{
+	return effect;
+}
