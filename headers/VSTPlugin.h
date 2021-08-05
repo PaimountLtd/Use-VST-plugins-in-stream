@@ -113,7 +113,7 @@ public:
 	void            removeEditor();
 	void            closeEditor(bool waitDeleteWorkerOnShutdown = false);
 	void            hideEditor();
-	std::string     getChunk(ChunkType type, bool force = false);
+	std::string     getChunk(ChunkType type);
 	void            send_setChunk();
 	void            setChunk(ChunkType type, std::string & data);
 	void            setProgram(const int programNumber);
