@@ -19,9 +19,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <set>
 
 #include <util/platform.h>
 #include <util/dstr.h>
+
+#ifdef WIN32
+#include <windows.h>
+#include <assert.h>
+#include <stdio.h>
+#include <tchar.h>
+#include <ImageHlp.h>
+#pragma comment(lib, "Imagehlp.lib")
+#endif
 
 #include "headers/VSTPlugin.h"
 
@@ -236,6 +246,312 @@ static struct obs_audio_data *vst_filter_audio(void *data, struct obs_audio_data
 	return audio;
 }
 
+#ifdef WIN32
+// Based on https://github.com/processhacker/processhacker/blob/master/phlib/mapimg.c
+// Testing this function takes about 1/10 of a ms to complete, pretty fast
+void ListModuleDependencies_Uppercase(const std::string& moduleName, std::set<std::string>& output)
+{
+	output.clear();
+	HANDLE fileHandle = CreateFileA(moduleName.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );
+
+	if (fileHandle == NULL) {
+		return;
+	}
+
+	DWORD fileSize = GetFileSize(fileHandle, NULL);        
+	HANDLE mappingHandle = CreateFileMappingW(fileHandle, NULL, PAGE_READONLY, 0, fileSize, NULL);
+
+	if (mappingHandle == NULL) {
+		CloseHandle(fileHandle);
+		return;
+	}
+    
+	#define PTR_ADD_OFFSET(Pointer, Offset) ((PVOID)((ULONG_PTR)(Pointer) + (ULONG_PTR)(Offset)))
+	#define PH_MAPPED_IMAGE_DELAY_IMPORTS 0x1
+	#define PH_MAPPED_IMAGE_DELAY_IMPORTS_V1 0x2
+
+	typedef struct _PH_MAPPED_IMAGE {
+	    USHORT Signature{0};
+	    PVOID ViewBase{0};
+	    SIZE_T Size{0};
+	
+	    union {
+	        struct  {
+	            union  {
+	                PIMAGE_NT_HEADERS32 NtHeaders32;
+	                PIMAGE_NT_HEADERS NtHeaders;
+	            };
+	
+	            ULONG NumberOfSections;
+	            PIMAGE_SECTION_HEADER Sections;
+	            USHORT Magic;
+	        };
+	        struct {
+	            struct _ELF_IMAGE_HEADER *Header;
+	            union  {
+	                struct _ELF_IMAGE_HEADER32 *Headers32;
+	                struct _ELF_IMAGE_HEADER64 *Headers64;
+	            };
+	        };
+	    };
+	} PH_MAPPED_IMAGE, *PPH_MAPPED_IMAGE;
+	
+	typedef struct _PH_MAPPED_IMAGE_IMPORTS {
+	    PPH_MAPPED_IMAGE MappedImage;
+	    ULONG Flags;
+	    ULONG NumberOfDlls;
+	
+	    union
+	    {
+	        PIMAGE_IMPORT_DESCRIPTOR DescriptorTable;
+	        PIMAGE_DELAYLOAD_DESCRIPTOR DelayDescriptorTable;
+	    };
+	} PH_MAPPED_IMAGE_IMPORTS, *PPH_MAPPED_IMAGE_IMPORTS;
+	
+	typedef struct _PH_MAPPED_IMAGE_IMPORT_DLL {
+	    PPH_MAPPED_IMAGE MappedImage;
+	    ULONG Flags;
+	    PSTR Name;
+	    ULONG NumberOfEntries;
+	
+	    union
+	    {
+	        PIMAGE_IMPORT_DESCRIPTOR Descriptor;
+	        PIMAGE_DELAYLOAD_DESCRIPTOR DelayDescriptor;
+	    };
+	    PVOID LookupTable;
+	} PH_MAPPED_IMAGE_IMPORT_DLL, *PPH_MAPPED_IMAGE_IMPORT_DLL;
+	
+	auto PhMappedImageRvaToSection = [&](PPH_MAPPED_IMAGE MappedImage, ULONG Rva) {
+	    for (ULONG i = 0; i < MappedImage->NumberOfSections; i++)
+	    {
+	        if ((Rva >= MappedImage->Sections[i].VirtualAddress) && (Rva < MappedImage->Sections[i].VirtualAddress + MappedImage->Sections[i].SizeOfRawData))
+	            return &MappedImage->Sections[i];
+	    }
+	
+	    return (PIMAGE_SECTION_HEADER)nullptr;
+	};
+
+	auto PhMappedImageRvaToVa = [&](PPH_MAPPED_IMAGE MappedImage, ULONG Rva) {
+		PIMAGE_SECTION_HEADER section;
+		section = PhMappedImageRvaToSection(MappedImage, Rva);
+
+		if (!section) {
+			return (PVOID) nullptr;
+		}
+
+		return (PVOID)PTR_ADD_OFFSET(MappedImage->ViewBase, (Rva - section->VirtualAddress) + section->PointerToRawData);
+	};
+
+	auto PhMappedImageVaToVa = [&](PPH_MAPPED_IMAGE MappedImage, ULONG Va) {
+		#define PTR_SUB_OFFSET(Pointer, Offset) ((PVOID)((ULONG_PTR)(Pointer) - (ULONG_PTR)(Offset)))
+
+		ULONG rva;
+		PIMAGE_SECTION_HEADER section;
+		
+		if (MappedImage->Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+		    rva = PtrToUlong(PTR_SUB_OFFSET(Va, MappedImage->NtHeaders32->OptionalHeader.ImageBase));
+		else if (MappedImage->Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+		    rva = PtrToUlong(PTR_SUB_OFFSET(Va, MappedImage->NtHeaders->OptionalHeader.ImageBase));
+		else
+		    return (PVOID)NULL;
+	
+		section = PhMappedImageRvaToSection(MappedImage, rva);
+	
+		if (!section) {
+			return (PVOID)NULL;
+		}
+
+		return (PVOID)PTR_ADD_OFFSET(MappedImage->ViewBase, PTR_ADD_OFFSET(PTR_SUB_OFFSET(rva, section->VirtualAddress), section->PointerToRawData));
+	};
+
+	auto PhProbeAddress = [&](PVOID UserAddress, SIZE_T UserLength, PVOID BufferAddress, SIZE_T BufferLength, ULONG Alignment) {
+	    if (UserLength != 0) {
+		if (((ULONG_PTR)UserAddress & (Alignment - 1)) != 0) {
+			return false;
+		}
+				 
+	        if (((ULONG_PTR)UserAddress + UserLength < (ULONG_PTR)UserAddress) || ((ULONG_PTR)UserAddress < (ULONG_PTR)BufferAddress) || ((ULONG_PTR)UserAddress + UserLength > (ULONG_PTR)BufferAddress + BufferLength))
+			return false;
+		}
+
+		return true;
+	};
+
+	auto PhpMappedImageProbe = [&](PPH_MAPPED_IMAGE MappedImage, PVOID Address, SIZE_T Length) {
+		return PhProbeAddress(Address, Length, MappedImage->ViewBase, MappedImage->Size, 1);
+	};
+    
+	PH_MAPPED_IMAGE MappedImage;
+	MappedImage.ViewBase = MapViewOfFileEx(mappingHandle, FILE_MAP_READ, 0, 0, fileSize, NULL);
+	MappedImage.Size = fileSize;
+
+	do
+	{        
+		PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)MappedImage.ViewBase;  
+
+		if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE || !PhpMappedImageProbe(&MappedImage, dosHeader, sizeof(IMAGE_DOS_HEADER))) {
+			break;
+		}
+
+		// Get a pointer to the NT headers and probe it.
+		ULONG ntHeadersOffset = (ULONG)dosHeader->e_lfanew;
+
+		if (ntHeadersOffset == 0 || ntHeadersOffset >= 0x10000000 || ntHeadersOffset >= fileSize) {
+			break;
+		}
+
+		MappedImage.NtHeaders = (PIMAGE_NT_HEADERS)PTR_ADD_OFFSET(MappedImage.ViewBase, ntHeadersOffset);
+		MappedImage.Magic = MappedImage.NtHeaders->OptionalHeader.Magic;
+
+		if (MappedImage.NtHeaders->Signature != IMAGE_NT_SIGNATURE || MappedImage.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC && MappedImage.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
+			break;
+		}
+        
+		// Get a pointer to the first section.
+		#define IMAGE_FIRST_SECTION( ntheader ) ((PIMAGE_SECTION_HEADER)        \
+		    ((ULONG_PTR)(ntheader) +                                            \
+		     FIELD_OFFSET( IMAGE_NT_HEADERS, OptionalHeader ) +                 \
+		     ((ntheader))->FileHeader.SizeOfOptionalHeader                      \
+		    ))
+
+		MappedImage.NumberOfSections = MappedImage.NtHeaders->FileHeader.NumberOfSections;
+		MappedImage.Sections = IMAGE_FIRST_SECTION(MappedImage.NtHeaders);
+
+		// Iterate imports                
+		PH_MAPPED_IMAGE_IMPORTS Imports;
+		Imports.MappedImage = &MappedImage;
+		Imports.Flags = 0;
+        
+		PIMAGE_DATA_DIRECTORY dataDirectory = nullptr;
+
+		if (MappedImage.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+			PIMAGE_OPTIONAL_HEADER32 optionalHeader = (PIMAGE_OPTIONAL_HEADER32)&MappedImage.NtHeaders->OptionalHeader;
+
+			if (IMAGE_DIRECTORY_ENTRY_IMPORT >= optionalHeader->NumberOfRvaAndSizes) {
+				break;
+			}
+
+			dataDirectory = &optionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+		}
+		else if (MappedImage.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
+			PIMAGE_OPTIONAL_HEADER64 optionalHeader = (PIMAGE_OPTIONAL_HEADER64)&MappedImage.NtHeaders->OptionalHeader;
+
+			if (IMAGE_DIRECTORY_ENTRY_IMPORT >= optionalHeader->NumberOfRvaAndSizes) {
+				break;
+			}
+
+			dataDirectory = &optionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+		} else {
+			break;
+		}
+
+		// Do a scan to determine how many import descriptors there are.
+		PIMAGE_IMPORT_DESCRIPTOR descriptor = (PIMAGE_IMPORT_DESCRIPTOR)PhMappedImageRvaToVa(&MappedImage, dataDirectory->VirtualAddress);
+		Imports.DescriptorTable = descriptor;
+		Imports.NumberOfDlls = 0;
+
+		while (PhpMappedImageProbe(&MappedImage, descriptor, sizeof(IMAGE_IMPORT_DESCRIPTOR))) {
+			if (descriptor->OriginalFirstThunk == 0 && descriptor->FirstThunk == 0) {
+				break;
+			}
+
+			descriptor++;
+			Imports.NumberOfDlls++;
+		}
+
+		for (ULONG Index = 0; Index < Imports.NumberOfDlls; Index++) {
+			PH_MAPPED_IMAGE_IMPORT_DLL ImportDll;
+			ImportDll.MappedImage = Imports.MappedImage;
+			ImportDll.Flags = Imports.Flags;
+
+			if (!(ImportDll.Flags & PH_MAPPED_IMAGE_DELAY_IMPORTS)){
+				ImportDll.Descriptor = &Imports.DescriptorTable[Index];
+				ImportDll.Name = (PSTR)PhMappedImageRvaToVa(ImportDll.MappedImage, ImportDll.Descriptor->Name);
+
+				if (ImportDll.Name != nullptr) {
+					std::string str(ImportDll.Name);
+					std::transform(str.begin(), str.end(), str.begin(), std::toupper);
+					output.insert(str);
+				}
+			}
+			else {
+				ImportDll.DelayDescriptor = &Imports.DelayDescriptorTable[Index];
+		
+				// Backwards compatible support for legacy V1 delay imports. (dmex)
+				if (ImportDll.DelayDescriptor->Attributes.RvaBased == 0) {
+					ImportDll.Flags |= PH_MAPPED_IMAGE_DELAY_IMPORTS_V1;
+				}
+		
+				if (!(ImportDll.Flags & PH_MAPPED_IMAGE_DELAY_IMPORTS_V1)) {
+					ImportDll.Name = (PSTR)PhMappedImageRvaToVa(ImportDll.MappedImage, ImportDll.DelayDescriptor->DllNameRVA);
+				} else {
+					ImportDll.Name = (PSTR)PhMappedImageVaToVa(ImportDll.MappedImage, ImportDll.DelayDescriptor->DllNameRVA);
+				}
+		
+				if (ImportDll.Name != nullptr) {
+					std::string str(ImportDll.Name);
+					std::transform(str.begin(), str.end(), str.begin(), std::toupper);
+					output.insert(str);
+				}
+			}
+		}
+	}
+	while (false);
+
+	UnmapViewOfFile(MappedImage.ViewBase);
+	CloseHandle(mappingHandle);
+}
+
+void ListExportedFunctions(const std::string& moduleName, std::set<std::string> &output)
+{
+	output.clear();
+	_LOADED_IMAGE LoadedImage;
+
+	// This doesn't load in the sense you're thinking
+	if (MapAndLoad(moduleName.c_str(), NULL, &LoadedImage, TRUE, TRUE)) {
+
+		unsigned long cDirSize;
+		_IMAGE_EXPORT_DIRECTORY *ImageExportDirectory = (_IMAGE_EXPORT_DIRECTORY *)ImageDirectoryEntryToData(LoadedImage.MappedAddress, false, IMAGE_DIRECTORY_ENTRY_EXPORT, &cDirSize);
+
+		if (ImageExportDirectory != NULL) {
+			DWORD *dNameRVAs = (DWORD *)ImageRvaToVa(LoadedImage.FileHeader, LoadedImage.MappedAddress, ImageExportDirectory->AddressOfNames, NULL);
+
+			for (size_t i = 0; i < ImageExportDirectory->NumberOfNames; i++) {
+				output.insert((char *)ImageRvaToVa(LoadedImage.FileHeader, LoadedImage.MappedAddress, dNameRVAs[i], NULL));
+			}
+		}
+
+		UnMapAndLoad(&LoadedImage);
+	}
+}
+#endif
+
+bool is_valid_module(const std::string& fullpath)
+{
+#ifdef WIN32
+	std::set<std::string> deps;
+	std::set<std::string> funcs;
+	ListModuleDependencies_Uppercase(fullpath, deps);
+	ListExportedFunctions(fullpath, funcs);
+
+	// Direct2d and OpenGL are only a part of v3 SDK aka "VSTGUI4"
+	// https://steinbergmedia.github.io/vst3_doc/vstgui/html/page_news_and_changes.html
+	if (deps.find("OPENGL32.DLL") != deps.end() || deps.find("D2D1.DLL") != deps.end()) {
+		blog(LOG_WARNING, "VST Plug-in: excluding %s, VSTGUI4 found", fullpath.c_str());
+		return false;
+	}
+
+	// These shouldn't be showing up in the list in the first place
+	if (funcs.find("VSTPluginMain") == funcs.end() && funcs.find("main") == funcs.end() && funcs.find("VstPluginMain()") == funcs.end()) {
+		blog(LOG_WARNING, "VST Plug-in: excluding %s, missing entry point", fullpath.c_str());
+		return false;
+	}
+#endif
+
+	return true;
+}
+
 bool valid_extension(const char *filepath)
 {
 	const char *ext          = os_get_path_extension(filepath);
@@ -308,7 +624,7 @@ static void find_plugins(std::vector<vst_data> &plugin_list, const char *dir_nam
 		 * an actual VST plugin. Can't do much about it
 		 * unfortunately unless everyone suddenly decided to
 		 * use a more sane extension. */
-		if (valid_extension(ent->d_name)) {
+		if (valid_extension(ent->d_name) && is_valid_module(path)) {
 			plugin_list.push_back({ent->d_name, path});
 		}
 
