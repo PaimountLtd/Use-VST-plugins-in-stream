@@ -275,18 +275,6 @@ intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index,
 
 	intptr_t result = 0;
 
-	// Filter idle calls...
-	bool filtered = false;
-	if (opcode == audioMasterIdle) {
-		static bool wasIdle = false;
-		if (wasIdle)
-			filtered = true;
-		else {
-			blog(LOG_WARNING,"VST Plug-in: Future idle calls will not be displayed!");
-			wasIdle = true;
-		}
-	}
-
 	switch (opcode) {
 	case audioMasterSizeWindow:
 		return 0;
@@ -295,25 +283,8 @@ intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index,
 	return result;
 }
 
-std::string VSTPlugin::getChunk(ChunkType type, bool force)
+std::string VSTPlugin::getChunk(ChunkType type)
 {
-	if (!force) {
-		switch(type) {
-			case ChunkType::Bank:
-				if (chunkDataBank.size()>0)
-					return chunkDataBank;
-			break;
-			case ChunkType::Program:
-				if (chunkDataProgram.size()>0)
-					return chunkDataProgram;
-			break;
-			case ChunkType::Parameter:
-				if (chunkDataParameter.size()>0)
-					return chunkDataParameter;
-			break;
-		};
-	}
-
 	cbase64_encodestate encoder;
 	std::string encodedData;
 	blog(LOG_INFO, "VST Plug-in: getChunk started");
