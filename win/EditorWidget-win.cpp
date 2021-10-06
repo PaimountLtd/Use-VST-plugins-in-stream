@@ -169,17 +169,17 @@ void EditorWidget::buildEffectContainer_worker()
 			} else if (msg.message == WM_USER_HIDE) {
 				hiddenWindow = true;
 				ShowWindow(m_hwnd, SW_HIDE);
-				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
-				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
-				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter, true);
+				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank);
+				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program);
+				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter);
 			}
 			else if (msg.message == WM_USER_CLOSE) {
 				if (shutdown) {
 					continue;
 				}
-				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank, true);
-				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program, true);
-				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter, true);
+				plugin->chunkDataBank = plugin->getChunk(ChunkType::Bank);
+				plugin->chunkDataProgram = plugin->getChunk(ChunkType::Program);
+				plugin->chunkDataParameter = plugin->getChunk(ChunkType::Parameter);
 				close();
 				dispatcherClose();
 				shutdown = true;
