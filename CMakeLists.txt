@@ -74,8 +74,7 @@ set_target_properties(obs-vst PROPERTIES FOLDER "plugins")
 if(APPLE)
 	target_link_libraries(obs-vst
 		${COCOA_FRAMEWORK}
-		${FOUNDATION_FRAMEWORK}
-		Qt5::MacExtras)
+		${FOUNDATION_FRAMEWORK})
 endif(APPLE)
 
 if (WIN32)
