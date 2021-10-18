@@ -230,6 +230,7 @@ void VSTPlugin::hideEditor()
 
 void VSTPlugin::removeEditor() {
 	is_open = false;
+	editorWidget->m_destructing = true;
 	if (editorWidget->windowWorker.joinable()) {
 		editorWidget->windowWorker.join();
 	}

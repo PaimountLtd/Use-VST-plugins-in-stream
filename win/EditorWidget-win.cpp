@@ -44,20 +44,23 @@ LRESULT WINAPI EffectWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 EditorWidget::~EditorWidget()
 {
+	m_destructing = true;
 }	
 
 void EditorWidget::buildEffectContainer()
 {
+	std::lock_guard<std::mutex> grd(m_threadCloseMtx);
+
+	if (m_threadActive) {
+		blog(LOG_ERROR, "EditorWidget: buildEffectContainer, already a thread running");
+		return;
+	}
+
 	//m_effect     = effect;
 	blog(LOG_WARNING, "EditorWidget: buildEffectContainer, about to start thread");
 
-	m_threadStarted  = CreateEvent(NULL,              // default security attributes
-	              TRUE,              // manual-reset event
-	              FALSE,             // initial state is nonsignaled
-	              NULL // object name
-	); 
-
-	m_hwnd       = 0;
+	m_hwnd = 0;
+	m_threadActive = true;
 	windowWorker = std::thread(std::bind(&EditorWidget::buildEffectContainer_worker, this));
 }
 
@@ -134,25 +137,18 @@ void EditorWidget::createWindow() {
 
 void EditorWidget::buildEffectContainer_worker()
 {
-	blog(LOG_WARNING,
-		"EditorWidget: buildEffectContainer_worker"
-	);
-	MSG msg;
-	//create thread message queue
-	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
-
-	BOOL bRet;
+	blog(LOG_WARNING, "EditorWidget: buildEffectContainer_worker");
 
 	bool shutdown = false;
-	if (!SetEvent(m_threadStarted)) {
-		blog(LOG_WARNING, "EditorWidget: Set Event Failed");
-	}
-	
-	while (!shutdown && (bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
-	{
-		if (bRet == -1) {
-			blog(LOG_WARNING, "EditorWidget: Exit GetMessage loop");
-			break;
+
+	while (!shutdown && !m_destructing) {
+
+		MSG msg;
+		BOOL hasMsg = PeekMessage(&msg, NULL, NULL, NULL, PM_REMOVE);
+
+		if (!hasMsg) {
+			std::this_thread::sleep_for(1ms);
+			continue;
 		} else {
 			if (msg.message == WM_USER_SET_TITLE) {
 				const char *title = reinterpret_cast<const char *>(msg.wParam);
@@ -205,22 +201,36 @@ void EditorWidget::buildEffectContainer_worker()
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-
 	}
-	ResetEvent(m_threadStarted);
-	return;
+
+	m_threadActive = false;
 }
 
-void EditorWidget::send_setChunk() {
+bool EditorWidget::verifyThreadActive()
+{
+	if (windowWorker.joinable()) {
+
+		if (!m_threadActive) {
+			windowWorker.join();
+			return false;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+void EditorWidget::send_setChunk()
+{
 	blog(LOG_WARNING, "EditorWidget: send_setChunk");
 
-	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
-	                                INFINITE);       // indefinite wait
-	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget: send_setChunk WaitForSingleObject failed: %ul", res);
+	if (!verifyThreadActive()) {
+		blog(LOG_WARNING, "EditorWidget: send_setChunk failed, worker thread is not active.");
 		return;
 	}
-	
+
+	std::lock_guard<std::mutex> grd(m_threadCloseMtx);
 	PostThreadMessage(GetThreadId(windowWorker.native_handle()),
 	                  WM_USER_SETCHUNK,
 	                  0,
@@ -231,13 +241,13 @@ void EditorWidget::send_setChunk() {
 void EditorWidget::send_loadEffectFromPath(string path)
 {
 	blog(LOG_WARNING, "EditorWidget: send_loadEffectFromPath , path: %s", path.c_str());
-	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
-	                                INFINITE);       // indefinite wait
-	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget: send_loadEffectFromPath WaitForSingleObject failed: %ul", res);
+
+	if (!verifyThreadActive()) {
+		blog(LOG_WARNING, "EditorWidget: send_loadEffectFromPath failed, worker thread is not active.");
 		return;
 	}
-	
+
+	std::lock_guard<std::mutex> grd(m_threadCloseMtx);
 	PostThreadMessage(GetThreadId(windowWorker.native_handle()),
 	                  WM_USER_LOAD_DLL,
 	                  reinterpret_cast<WPARAM>(new string(path.c_str())),
@@ -255,12 +265,13 @@ void EditorWidget::setWindowTitle(const char *title)
 void EditorWidget::send_setWindowTitle(const char *title)
 {
 	blog(LOG_WARNING, "EditorWidget: send_setWindowTitle , title: %s", title);
-	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
-	                                INFINITE);       // indefinite wait
-	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget: send_setWindowTitle WaitForSingleObject failed: %ul", res);
+
+	if (!verifyThreadActive()) {
+		blog(LOG_WARNING, "EditorWidget: send_setWindowTitle failed, worker thread is not active.");
 		return;
 	}
+
+	std::lock_guard<std::mutex> grd(m_threadCloseMtx);
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()),
 			  WM_USER_SET_TITLE,
 	                  reinterpret_cast<WPARAM>(title),
@@ -282,13 +293,12 @@ void EditorWidget::send_hide()
 {
 	blog(LOG_WARNING, "EditorWidget::send_hide");
 
-	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
-	                                INFINITE);       // indefinite wait
-	blog(LOG_WARNING, "After wait single");
-	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget::send_hide WaitForSingleObject failed: %ul", res);
+	if (!verifyThreadActive()) {
+		blog(LOG_WARNING, "EditorWidget::send_hide failed, worker thread is not active.");
 		return;
 	}
+
+	std::lock_guard<std::mutex> grd(m_threadCloseMtx);
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_HIDE, 0, 0);
 	if (!retMsg) {
 		DWORD dw = GetLastError();
@@ -301,13 +311,12 @@ void EditorWidget::send_close()
 	sync_data sd;
 	blog(LOG_WARNING, "EditorWidget: send_close called");
 
-	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
-	                                   INFINITE);    // indefinite wait
-	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget: send_close WaitForSingelObject failed: %ul", res);
+	if (!verifyThreadActive()) {
+		blog(LOG_WARNING, "EditorWidget: send_close failed, worker thread is not active.");
 		return;
 	}
-	
+
+	std::lock_guard<std::mutex> grd(m_threadCloseMtx);
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_CLOSE, 0, reinterpret_cast<WPARAM>(&sd));
 	if (!retMsg) {
 		DWORD dw = GetLastError();
@@ -327,13 +336,12 @@ void EditorWidget::send_show()
 {
 	blog(LOG_WARNING, "EditorWidget: send_show called");
 
-	DWORD res = WaitForSingleObject(m_threadStarted, // event handle
-	                                INFINITE);       // indefinite wait
-	blog(LOG_WARNING, "After wait single");
-	if (res != WAIT_OBJECT_0) {
-		blog(LOG_WARNING, "EditorWidget: send_show WaitForSingeObject failed: %ul", res);
+	if (!verifyThreadActive()) {
+		blog(LOG_WARNING, "EditorWidget: send_show failed, worker thread is not active.");
 		return;
 	}
+
+	std::lock_guard<std::mutex> grd(m_threadCloseMtx);
 	BOOL retMsg = PostThreadMessage(GetThreadId(windowWorker.native_handle()), WM_USER_SHOW, 0, 0);
 	if (!retMsg) {
 		DWORD dw = GetLastError();

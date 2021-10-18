@@ -76,13 +76,16 @@ class EditorWidget {
 	std::string m_path;
 	bool        needs_to_show_window;
 	HWND        m_hwnd;
-	HANDLE      m_threadStarted;
+	std::mutex  m_threadCloseMtx;
+	std::atomic<bool> m_threadActive{false};
+
 	void        createWindow();
 #ifdef __linux__
 	xcb_window_t m_wid;
 #endif
 
 public:
+	std::atomic<bool> m_destructing{false};
 	std::thread windowWorker;
 	bool        hiddenWindow;
 	EditorWidget(VSTPlugin *plugin);
@@ -100,6 +103,10 @@ public:
 	void send_show();
 	void send_hide();
 	void send_close();
+
+#ifdef WIN32
+	bool verifyThreadActive();
+#endif
 };
 
 #endif // OBS_STUDIO_EDITORDIALOG_H
