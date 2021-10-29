@@ -77,7 +77,8 @@ class EditorWidget {
 	bool        needs_to_show_window;
 	HWND        m_hwnd;
 	std::mutex  m_threadCloseMtx;
-	std::atomic<bool> m_threadActive{false};
+	std::atomic<bool> m_threadCreated{false};
+	std::atomic<bool> m_threadReady{false};
 
 	void        createWindow();
 #ifdef __linux__

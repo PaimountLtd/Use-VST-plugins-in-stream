@@ -51,7 +51,7 @@ void EditorWidget::buildEffectContainer()
 {
 	std::lock_guard<std::mutex> grd(m_threadCloseMtx);
 
-	if (m_threadActive) {
+	if (m_threadCreated) {
 		blog(LOG_ERROR, "EditorWidget: buildEffectContainer, already a thread running");
 		return;
 	}
@@ -60,8 +60,12 @@ void EditorWidget::buildEffectContainer()
 	blog(LOG_WARNING, "EditorWidget: buildEffectContainer, about to start thread");
 
 	m_hwnd = 0;
-	m_threadActive = true;
 	windowWorker = std::thread(std::bind(&EditorWidget::buildEffectContainer_worker, this));
+
+	if (windowWorker.joinable()) {
+		while (!m_threadReady) { std::this_thread::sleep_for(1ms); }
+		m_threadCreated = true;
+	}
 }
 
 void EditorWidget::createWindow() {
@@ -140,6 +144,7 @@ void EditorWidget::buildEffectContainer_worker()
 	blog(LOG_WARNING, "EditorWidget: buildEffectContainer_worker");
 
 	bool shutdown = false;
+	m_threadReady = true;
 
 	while (!shutdown && !m_destructing) {
 
@@ -202,20 +207,21 @@ void EditorWidget::buildEffectContainer_worker()
 			DispatchMessage(&msg);
 		}
 	}
-
-	m_threadActive = false;
+	
+	m_threadReady = false;
+	m_threadCreated = false;
 }
 
 bool EditorWidget::verifyThreadActive()
 {
 	if (windowWorker.joinable()) {
 
-		if (!m_threadActive) {
+		if (!m_threadCreated) {
 			windowWorker.join();
 			return false;
 		}
 
-		return true;
+		return m_threadReady;
 	}
 
 	return false;
