@@ -23,6 +23,7 @@
  */
 
 #include <stdint.h>
+#include <atomic>
 
 #ifndef _AEFFECTX_H
 #define _AEFFECTX_H
@@ -253,7 +254,7 @@ class AEffect
 	public:
 		// Never use virtual functions!!!
 		// 00-03
-		int magic;
+		int magic{ 0 };
 		// dispatcher 04-07
 		intptr_t (* dispatcher)( AEffect * , int , int , intptr_t, void * , float );
 		// process, quite sure 08-0b
@@ -290,7 +291,29 @@ class AEffect
 		int32_t version;
 		// processReplacing 50-53
 		void (* processReplacing)( AEffect * , float * * , float * * , int );
+
+// Client doesn't care about spacing since it doesn't actually load the module
+#ifdef AEFFCLIENT
+public:
+	virtual ~AEffect() {}
+	std::atomic<bool> m_valid{ true };
+#endif
 };
+
+#ifndef AEFFCLIENT
+static intptr_t afx_dispatcher(AEffect* a, int b, int c, intptr_t d, void* e, float f, const size_t ptr_size = 0) { return a->dispatcher(a, b, c, d, e, f); }		
+static void afx_setParameter(AEffect* a, int b, float c) { a->setParameter(a, b, c); }		
+static float afx_getParameter(AEffect* a, int b) { return a->getParameter(a, b); }
+static void afx_processReplacing(AEffect* a, float** b, float** c, int d, int arraySize = 0) { a->processReplacing(a, b, c, d); }
+static void afx_updateAEffect(AEffect* a) { }
+#else
+extern intptr_t afx_dispatcher(AEffect* a, int b, int c, intptr_t d, void* e, float f, const size_t ptr_size);
+extern void afx_setParameter(AEffect* a, int b, float c) ;
+extern float afx_getParameter(AEffect* a, int b);
+extern void afx_processReplacing(AEffect* a, float** b, float** c, int d, int arraySize);
+extern void afx_sendHwndMsg(AEffect* a, int msgType);
+extern void afx_updateAEffect(AEffect* a);
+#endif
 
 typedef intptr_t (* audioMasterCallback)( AEffect * , int32_t, int32_t,
 		intptr_t, void * , float );

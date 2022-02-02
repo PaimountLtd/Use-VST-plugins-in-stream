@@ -7,7 +7,47 @@ if(DISABLE_VST)
 	return()
 endif()
 
-project(obs-vst)
+cmake_minimum_required(VERSION 3.5.1)
+
+project(obs-vst C CXX)
+
+if (WIN32)
+	include(common.cmake)
+
+	# Proto file
+	get_filename_component(papi_proto "obs_vst_api.proto" ABSOLUTE)
+	get_filename_component(papi_proto_path "${papi_proto}" PATH)
+
+	# Generated sources
+	set(papi_proto_srcs "${CMAKE_CURRENT_BINARY_DIR}/obs_vst_api.pb.cc")
+	set(papi_proto_hdrs "${CMAKE_CURRENT_BINARY_DIR}/obs_vst_api.pb.h")
+	set(papi_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/obs_vst_api.grpc.pb.cc")
+	set(papi_grpc_hdrs "${CMAKE_CURRENT_BINARY_DIR}/obs_vst_api.grpc.pb.h")
+
+	add_custom_command(
+	      OUTPUT "${papi_proto_srcs}" "${papi_proto_hdrs}" "${papi_grpc_srcs}" "${papi_grpc_hdrs}"
+	      COMMAND ${_PROTOBUF_PROTOC}
+	      ARGS --grpc_out "${CMAKE_CURRENT_BINARY_DIR}"
+		--cpp_out "${CMAKE_CURRENT_BINARY_DIR}"
+		-I "${papi_proto_path}"
+		--plugin=protoc-gen-grpc="${_GRPC_CPP_PLUGIN_EXECUTABLE}"
+		"${papi_proto}"
+	      DEPENDS "${papi_proto}")
+
+	include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+
+	# papi_grpc_proto
+	add_library(papi_grpc_proto
+		${papi_grpc_srcs}
+		${papi_grpc_hdrs}
+		${papi_proto_srcs}
+		${papi_proto_hdrs})
+	target_link_libraries(papi_grpc_proto
+		${_REFLECTION}
+		${_GRPC_GRPCPP}
+		${_PROTOBUF_LIBPROTOBUF})
+
+endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -48,7 +88,9 @@ if(APPLE)
 elseif(WIN32)
 	list(APPEND obs-vst_SOURCES
 		win/VSTPlugin-win.cpp
-		win/EditorWidget-win.cpp)
+		win/EditorWidget-win.cpp
+		${papi_proto_srcs}
+		${papi_grpc_srcs})
 
 elseif("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
 	list (APPEND obs-vst_SOURCES
@@ -60,6 +102,7 @@ list(APPEND obs-vst_HEADERS
 	headers/vst-plugin-callbacks.hpp
 	headers/EditorWidget.h
 	headers/VSTPlugin.h)
+
 
 add_library(obs-vst MODULE
 	${obs-vst_SOURCES}
@@ -78,8 +121,41 @@ if(APPLE)
 endif(APPLE)
 
 if (WIN32)
-	target_link_libraries(obs-vst 
-		Dwmapi)
+	target_link_libraries(obs-vst
+	  ${_REFLECTION}
+	  ${_GRPC_GRPCPP}
+	  ${_PROTOBUF_LIBPROTOBUF}
+	)
 endif(WIN32)
 
 install_obs_plugin_with_data(obs-vst data)
+
+target_compile_features(obs-vst PRIVATE cxx_std_17)
+
+if (WIN32)
+	project(win-streamlabs-vst C CXX)
+
+	set(win-streamlabs-vst_SOURCES
+	  WIN32 proxy/win-streamlabs-vst.cpp
+	  proxy/VstWindow.cpp
+	  proxy/VstModule.cpp
+	  ${papi_proto_srcs}
+	  ${papi_grpc_srcs}
+	)
+	
+	add_executable(win-streamlabs-vst
+	  ${win-streamlabs-vst_SOURCES}
+	  ${papi_proto_srcs}
+	  ${papi_grpc_srcs}
+	)
+
+	target_link_libraries(win-streamlabs-vst
+	  papi_grpc_proto
+	  ${_REFLECTION}
+	  ${_GRPC_GRPCPP}
+	  ${_PROTOBUF_LIBPROTOBUF}
+	)
+
+	target_compile_features(win-streamlabs-vst PRIVATE cxx_std_17)
+
+endif()

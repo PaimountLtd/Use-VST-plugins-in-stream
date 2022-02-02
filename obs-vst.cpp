@@ -85,7 +85,7 @@ static const char *vst_name(void *unused)
 static void vst_destroy(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	vstPlugin->closeEditor(true);
+	vstPlugin->closeEditor();
 	vstPlugin->unloadEffect();
 	delete vstPlugin;
 }
@@ -95,28 +95,28 @@ static void vst_update(void *data, obs_data_t *settings)
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
 	vstPlugin->openInterfaceWhenActive = obs_data_get_bool(settings, OPEN_WHEN_ACTIVE_VST_SETTINGS);
-	const char *path                   = obs_data_get_string(settings, "plugin_path");
+	const char *path = obs_data_get_string(settings, "plugin_path");
 
-	if (!path || !strcmp(path, "")) {
+	if (!path || !strcmp(path, ""))
 		return;
-	}
 
-	// Load VST plugin only when creating the filter or when changing plugin
 	blog(LOG_WARNING, "VST Plug-in: update settings called from create: %d", isUpdateFromCreate);
 
 	bool load_vst = false;
-	if (vstPlugin->getPluginPath().compare(std::string(path)) != 0 || !vstPlugin->hasWindowOpen()) {
-		load_vst = true;
+
+	if (!vstPlugin->isEffectCrashed())
+	{
+		// Load VST plugin only when creating the filter or when changing plugin
+		if (vstPlugin->getPluginPath() != std::string(path) || vstPlugin->getEffect() == nullptr)
+			load_vst = true;
 	}
 
 	if (load_vst) {
-		// unload previous effect only when changing
-		if (vstPlugin->getPluginPath().compare(std::string(path)) != 0) {
-			vstPlugin->closeEditor();
-			vstPlugin->unloadEffect();
-		}
+		
+		vstPlugin->unloadEffect();
+
 		if (!vstPlugin->editorWidget) {
-			vstPlugin->editorWidget = new EditorWidget(vstPlugin);
+			vstPlugin->editorWidget = std::make_unique<EditorWidget>(vstPlugin);
 			vstPlugin->editorWidget->buildEffectContainer();
 		}
 		

@@ -28,6 +28,11 @@ typedef unsigned long HWND;
 typedef void * HANDLE;
 #endif
 
+// Windows uses a proxy process
+#ifdef WIN32
+	#define AEFFCLIENT 1
+#endif
+
 #include "aeffectx.h"
 #include "VSTPlugin.h"
 #include <thread>
@@ -42,21 +47,6 @@ struct sync_data {
 	bool                    ran = false;
 };
 
-#ifdef WIN32
-
-enum WM_USER_MSG {
-	// Start at index user + 5 because some plugins were causing issues when sending invalid
-	// messages to the main window
-	WM_USER_SET_TITLE = WM_USER + 5,
-	WM_USER_SHOW,
-	WM_USER_CLOSE,
-	WM_USER_LOAD_DLL,
-	WM_USER_SETCHUNK,
-	WM_USER_HIDE
-};
-
-#endif
-
 class VSTPlugin;
 
 class VstRect {
@@ -70,15 +60,11 @@ public:
 
 class EditorWidget {
 	friend class VSTPlugin;
-	VSTPlugin *plugin;
-	AEffect *   m_effect;
-	std::string m_title;
-	std::string m_path;
-	bool        needs_to_show_window;
-	HWND        m_hwnd;
-	std::mutex  m_threadCloseMtx;
-	std::atomic<bool> m_threadCreated{false};
-	std::atomic<bool> m_threadReady{false};
+	
+private:
+	VSTPlugin* m_plugin{ nullptr };
+	bool m_windowCreated{ false };
+	std::recursive_mutex m_mutex;
 
 	void        createWindow();
 #ifdef __linux__
@@ -86,11 +72,9 @@ class EditorWidget {
 #endif
 
 public:
-	std::atomic<bool> m_destructing{false};
-	std::thread windowWorker;
-	bool        hiddenWindow;
 	EditorWidget(VSTPlugin *plugin);
 	virtual ~EditorWidget();
+
 	void setWindowTitle(const char *title);
 	void show();
 	void dispatcherClose();
@@ -105,9 +89,8 @@ public:
 	void send_hide();
 	void send_close();
 
-#ifdef WIN32
-	bool verifyThreadActive();
-#endif
+public:
+	bool	    m_windowOpen{ false };
 };
 
 #endif // OBS_STUDIO_EDITORDIALOG_H
