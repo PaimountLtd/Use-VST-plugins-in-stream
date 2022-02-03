@@ -40,6 +40,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		std::lock_guard<std::mutex> grd(mtx);
 		outsideHwndMsgContainer.push_back(msgType);
 	};
+
 	if (!mod.start())
 	{
 		return 0;

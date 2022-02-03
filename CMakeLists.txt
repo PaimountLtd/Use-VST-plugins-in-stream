@@ -78,30 +78,26 @@ endif(APPLE)
 set(obs-vst_SOURCES
 	obs-vst.cpp
 	VSTPlugin.cpp
-	EditorWidget.cpp)
+	grpc_vst_communicatorClient.cpp)
 
 if(APPLE)
 	list(APPEND obs-vst_SOURCES
-		mac/VSTPlugin-osx.mm
-		mac/EditorWidget-osx.mm)
+		mac/VSTPlugin-osx.mm)
 
 elseif(WIN32)
 	list(APPEND obs-vst_SOURCES
 		win/VSTPlugin-win.cpp
-		win/EditorWidget-win.cpp
 		${papi_proto_srcs}
 		${papi_grpc_srcs})
 
 elseif("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
 	list (APPEND obs-vst_SOURCES
-		linux/VSTPlugin-linux.cpp
-		linux/EditorWidget-linux.cpp)
+		linux/VSTPlugin-linux.cpp)
 endif()
 
 list(APPEND obs-vst_HEADERS
-	headers/vst-plugin-callbacks.hpp
-	headers/EditorWidget.h
-	headers/VSTPlugin.h)
+	headers/VSTPlugin.h
+	headers/grpc_vst_communicatorClient.h)
 
 
 add_library(obs-vst MODULE

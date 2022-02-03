@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 
 #include "headers/VSTPlugin.h"
+#include "win/VstWinDefs.h"
+#include "headers/grpc_vst_communicatorClient.h"
 
 #define CBASE64_IMPLEMENTATION
 #include "cbase64.h"
@@ -28,20 +30,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <functional>
 #include <filesystem>
 
-VSTPlugin::VSTPlugin(obs_source_t *sourceContext)
-        : sourceContext{sourceContext}, effect{nullptr}, is_open{false}, saveWasClicked{false}
+VSTPlugin::VSTPlugin(obs_source_t *sourceContext) :
+	m_sourceContext{sourceContext},
+	m_effect{nullptr},
+	m_is_open{false}
 {
 
 	int numChannels = VST_MAX_CHANNELS;
 	int blocksize   = BLOCK_SIZE;
 
-	inputs  = (float **)malloc(sizeof(float **) * numChannels);
-	outputs = (float **)malloc(sizeof(float **) * numChannels);
+	m_inputs = (float **)malloc(sizeof(float **) * numChannels);
+	m_outputs = (float **)malloc(sizeof(float **) * numChannels);
 
 	for (int channel = 0; channel < numChannels; channel++)
 	{
-		inputs[channel]  = (float *)malloc(sizeof(float *) * blocksize);
-		outputs[channel] = (float *)malloc(sizeof(float *) * blocksize);
+		m_inputs[channel] = (float *)malloc(sizeof(float *) * blocksize);
+		m_outputs[channel] = (float *)malloc(sizeof(float *) * blocksize);
 	}
 }
 
@@ -51,45 +55,46 @@ VSTPlugin::~VSTPlugin()
 
 	for (int channel = 0; channel < numChannels; channel++)
 	{
-		if (inputs[channel])
+		if (m_inputs[channel])
 		{
-			free(inputs[channel]);
-			inputs[channel] = NULL;
+			free(m_inputs[channel]);
+			m_inputs[channel] = NULL;
 		}
 
-		if (outputs[channel])
+		if (m_outputs[channel])
 		{
-			free(outputs[channel]);
-			outputs[channel] = NULL;
+			free(m_outputs[channel]);
+			m_outputs[channel] = NULL;
 		}
 	}
 
-	if (inputs)
+	if (m_inputs)
 	{
-		free(inputs);
-		inputs = NULL;
+		free(m_inputs);
+		m_inputs = NULL;
 	}
 
-	if (outputs)
+	if (m_outputs)
 	{
-		free(outputs);
-		outputs = NULL;
+		free(m_outputs);
+		m_outputs = NULL;
 	}
 }
 
 void VSTPlugin::loadEffectFromPath(std::string path)
 {
-	if (effectCrashed || effect != nullptr)
+	if (m_proxyDisconnected || m_effect != nullptr)
 		return;
-
-	blog(LOG_DEBUG, "VST Plug-in: loadEffectFromPath from pluginPath %s ", pluginPath.c_str());
 	
-	std::lock_guard<std::mutex> grd(effectStatusMutex);
+	std::lock_guard<std::recursive_mutex> grd(m_effectStatusMutex);
 
-	pluginPath = path;
+	blog(LOG_DEBUG, "VST Plug-in: loadEffectFromPath from pluginPath %s ", m_pluginPath.c_str());
+	m_pluginPath = path;
+
+	unloadEffect();
 	loadEffect();
 
-	if (!verifyPluginIntegrity())
+	if (!verifyProxy())
 	{
 		blog(LOG_WARNING, "VST Plug-in: loadEffectFromPath Can't load effect!");
 		return;
@@ -97,63 +102,60 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 
 	// Check plug-in's magic number
 	// If incorrect, then the file either was not loaded properly, is not a real VST plug-in, or is otherwise corrupt.
-	if (effect->magic != kEffectMagic) {
+	if (m_effect->magic != kEffectMagic)
+	{
 		blog(LOG_WARNING, "VST Plug-in: loadEffectFromPath magic number is bad");
 		return;
 	}
 	
-	#ifndef AEFFCLIENT
-		blog(LOG_DEBUG, "VST Plug-in: loadEffectFromPath get effect pointer: %p", effect.get());
-	#endif
-
-	afx_dispatcher(effect.get(), effGetEffectName, 0, 0, effectName, 0, 64);
-	afx_dispatcher(effect.get(), effGetVendorString, 0, 0, vendorString, 0, 64);
-	afx_dispatcher(effect.get(), effOpen, 0, 0, nullptr, 0.0f, 0);
+	m_server->dispatcher(m_effect.get(), effGetEffectName, 0, 0, m_effectName, 0, 64);
+	m_server->dispatcher(m_effect.get(), effGetVendorString, 0, 0, m_vendorString, 0, 64);
+	m_server->dispatcher(m_effect.get(), effOpen, 0, 0, nullptr, 0.0f, 0);
 
 	// Set some default properties
 	auto sampleRate = audio_output_get_sample_rate(obs_get_audio());
-	afx_dispatcher(effect.get(), effSetSampleRate, 0, 0, nullptr, static_cast<float>(sampleRate), 0);
+	m_server->dispatcher(m_effect.get(), effSetSampleRate, 0, 0, nullptr, static_cast<float>(sampleRate), 0);
 
 	int blocksize = BLOCK_SIZE;
-	afx_dispatcher(effect.get(), effSetBlockSize, 0, blocksize, nullptr, 0.0f, 0);
-	afx_dispatcher(effect.get(), effMainsChanged, 0, 1, nullptr, 0, 0);
+	m_server->dispatcher(m_effect.get(), effSetBlockSize, 0, blocksize, nullptr, 0.0f, 0);
+	m_server->dispatcher(m_effect.get(), effMainsChanged, 0, 1, nullptr, 0, 0);
 
-	if (!verifyPluginIntegrity())
+	if (!verifyProxy())
 		return;
 
-	effectReady = true;
-
-	if (openInterfaceWhenActive) {
+	if (m_openInterfaceWhenActive)
 		openEditor();
-	}
 }
 
-bool VSTPlugin::verifyPluginIntegrity()
+bool VSTPlugin::verifyProxy()
 {
-#ifndef AEFFCLIENT
-	return true;
-#else
-	if (effect == nullptr)
+	if (m_effect == nullptr)
 		return false;
 
-	if (effectCrashed)
+	if (m_proxyDisconnected)
 		return false;
 
-	if (!effect->m_valid)
+	if (m_server != nullptr)
 	{
-		effectCrashed = true;
+		m_proxyDisconnected = !m_server->m_connected;
 
-		#ifdef WIN32
-			::MessageBoxA(NULL, (std::filesystem::path(pluginPath).filename().string() + " has stopped working.\n\nAfter closing this popup, audio will continue but the filter is now disabled. You may restart the application or recreate the filter to enable it again.").c_str(), "VST Filter Error",
-				MB_ICONERROR | MB_TOPMOST);
-		#endif
+		if (m_proxyDisconnected)
+		{
+			#ifdef WIN32
+				::MessageBoxA(NULL, (std::filesystem::path(m_pluginPath).filename().string() + " has stopped working.\n\nAfter closing this popup, audio will continue but the filter is now disabled. You may restart the application or recreate the filter to enable it again.").c_str(), "VST Filter Error",
+					MB_ICONERROR | MB_TOPMOST);
+			#endif
 
-		unloadLibrary();
-		return false;
+			stopProxy();
+			return false;
+		}
+		else
+		{
+			return true;
+		}
 	}
 
-	return true;	
-#endif
+	return false;	
 }
 
 void silenceChannel(float **channelData, int numChannels, long numFrames)
@@ -167,10 +169,10 @@ void silenceChannel(float **channelData, int numChannels, long numFrames)
 
 obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 {
-	if (!effectStatusMutex.try_lock())
+	if (!m_effectStatusMutex.try_lock())
 		return audio;
-
-	if (effect && effectReady)
+	
+	if (m_effect != nullptr && m_server != nullptr)
 	{
 		uint32_t passes = (audio->frames + BLOCK_SIZE - 1) / BLOCK_SIZE;
 		uint32_t extra  = audio->frames % BLOCK_SIZE;
@@ -178,7 +180,7 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 		for (uint32_t pass = 0; pass < passes; pass++)
 		{
 			uint32_t frames = pass == passes - 1 && extra ? extra : BLOCK_SIZE;
-			silenceChannel(outputs, VST_MAX_CHANNELS, BLOCK_SIZE);
+			silenceChannel(m_outputs, VST_MAX_CHANNELS, BLOCK_SIZE);
 
 			float *adata[VST_MAX_CHANNELS];
 
@@ -187,14 +189,14 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 				if (audio->data[d] != nullptr)
 					adata[d] = ((float *)audio->data[d]) + (pass * BLOCK_SIZE);
 				else 
-					adata[d] = inputs[d];
+					adata[d] = m_inputs[d];
 			};
 
-			afx_processReplacing(effect.get(), adata, outputs, frames, VST_MAX_CHANNELS);
+			m_server->processReplacing(m_effect.get(), adata, m_outputs, frames, VST_MAX_CHANNELS);
 
-			if (!verifyPluginIntegrity())
+			if (!verifyProxy())
 			{
-				effectStatusMutex.unlock();
+				m_effectStatusMutex.unlock();
 				return audio;
 			}
 
@@ -203,124 +205,104 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 				if (audio->data[c] != nullptr)
 				{
 					for (size_t i = 0; i < frames; i++) 
-						adata[c][i] = outputs[c][i];
+						adata[c][i] = m_outputs[c][i];
 				}
 			}
 		}
 	}
 
-	effectStatusMutex.unlock();
+	m_effectStatusMutex.unlock();
 	return audio;
 }
 
 void VSTPlugin::unloadEffect()
 {
-	removeEditor();
+	std::lock_guard<std::recursive_mutex> grd(m_effectStatusMutex);
 
-	effectStatusMutex.lock();
-	effectReady = false;
+	m_windowCreated = false;
+	m_proxyDisconnected = false;
 
-	if (effect)
+	if (m_effect != nullptr && m_server != nullptr)
 	{
-		afx_dispatcher(effect.get(), effStopProcess, 0, 0, nullptr, 0, 0);
-		afx_dispatcher(effect.get(), effMainsChanged, 0, 0, nullptr, 0, 0);
-		afx_dispatcher(effect.get(), effClose, 0, 0, nullptr, 0.0f, 0);
+		m_server->dispatcher(m_effect.get(), effStopProcess, 0, 0, nullptr, 0, 0);
+		m_server->dispatcher(m_effect.get(), effMainsChanged, 0, 0, nullptr, 0, 0);
+		m_server->dispatcher(m_effect.get(), effClose, 0, 0, nullptr, 0.0f, 0);
 	}
 
-	unloadLibrary();
-
-	effectStatusMutex.unlock();
+	stopProxy();
 }
 
 bool VSTPlugin::isEditorOpen()
 {
-	return is_open;	
+	return m_is_open;	
 }
 
 bool VSTPlugin::hasWindowOpen()
 {
-	if (editorWidget == nullptr)
+	if (m_windowCreated == false) 
 		return false;
 
-	if (editorWidget->m_windowCreated == false) 
-		return false;
-
-	return editorWidget->m_windowOpen;
+	return m_is_open;
 }
 
 void VSTPlugin::openEditor()
 {
-	if (isEffectCrashed())
+	if (isProxyDisconnected())
 		return;
 
-	is_open = true;
-	
-	if (!editorWidget)
-		editorWidget = std::make_unique<EditorWidget>(this);
-
 	blog(LOG_WARNING, "VST Plug-in: openEditor send_show");	
-	editorWidget->send_show();
-	verifyPluginIntegrity();
+
+	if (m_effect != nullptr && m_server != nullptr)
+	{
+		if (!m_windowCreated)
+		{
+			m_server->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_CREATE_WINDOW);
+			m_windowCreated = true;
+		}
+
+		m_server->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_SHOW);
+		m_is_open = true;
+	}
+
+	verifyProxy();
 }
 
 void VSTPlugin::hideEditor()
 {
-	if (isEffectCrashed())
+	if (isProxyDisconnected())
 		return;
-
-	is_open = false;
-
-	if (editorWidget)
+		
+	if (m_windowCreated && m_effect != nullptr && m_server != nullptr)
 	{
-		editorWidget->send_hide();
-		verifyPluginIntegrity();
+		m_server->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_HIDE);
+		m_is_open = false;
 	}
-}
 
-void VSTPlugin::removeEditor()
-{
-	is_open = false;
-	editorWidget = nullptr;
+	verifyProxy();
 }
 
 void VSTPlugin::closeEditor()
 {
-	is_open = false;
+	m_is_open = false;
+	
+	blog(LOG_WARNING, "VST Plug-in: closeEditor, sending close...");
 
-	if (editorWidget)
+	if (m_windowCreated && m_effect != nullptr && m_server != nullptr)
 	{
-		blog(LOG_WARNING, "VST Plug-in: closeEditor, sending close...");
-		editorWidget->send_close();
-		editorWidget = nullptr;
-		verifyPluginIntegrity();
-	}
-}
-
-intptr_t VSTPlugin::hostCallback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
-{
-	UNUSED_PARAMETER(effect);
-	UNUSED_PARAMETER(ptr);
-	UNUSED_PARAMETER(opt);
-	UNUSED_PARAMETER(index);
-	UNUSED_PARAMETER(value);
-
-	intptr_t result = 0;
-
-	switch (opcode) {
-	case audioMasterSizeWindow:
-		return 0;
+		m_server->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_CLOSE);
+		m_windowCreated = false;
 	}
 
-	return result;
+	verifyProxy();
 }
 
-std::string VSTPlugin::getChunk(ChunkType type)
+std::string VSTPlugin::getChunk(VstChunkType type)
 {
 	cbase64_encodestate encoder;
 	std::string encodedData;
 	blog(LOG_INFO, "VST Plug-in: getChunk started");
 
-	if (!effect)
+	if (m_effect == nullptr || m_server == nullptr)
 	{
 		blog(LOG_WARNING, "VST Plug-in: getChunk, no effect loaded");
 		return "";
@@ -328,12 +310,12 @@ std::string VSTPlugin::getChunk(ChunkType type)
 
 	cbase64_init_encodestate(&encoder);
 
-	if (effect->flags & effFlagsProgramChunks && type != ChunkType::Parameter)
+	if (m_effect->flags & effFlagsProgramChunks && type != VstChunkType::Parameter)
 	{
 		void *buf = nullptr;
-		intptr_t chunkSize = afx_dispatcher(effect.get(), effGetChunk, int(type), 0, &buf, 0.0, 0);
+		intptr_t chunkSize = m_server->dispatcher(m_effect.get(), effGetChunk, int(type), 0, &buf, 0.0, 0);
 
-		if (!verifyPluginIntegrity())
+		if (!verifyProxy())
 			return "";
 
 		if (!buf || chunkSize==0)
@@ -351,17 +333,17 @@ std::string VSTPlugin::getChunk(ChunkType type)
 		blog(LOG_WARNING, "VST Plug-in: getChunk by effGetChunk complete,  %s", encodedData.c_str());
 		return encodedData;
 	}
-	else if (!(effect->flags & effFlagsProgramChunks) && type == ChunkType::Parameter)
+	else if (!(m_effect->flags & effFlagsProgramChunks) && type == VstChunkType::Parameter)
 	{
 		std::vector<float> params;
 
-		for (int i = 0; i < effect->numParams; i++)
+		for (int i = 0; i < m_effect->numParams; i++)
 		{
-			float parameter = afx_getParameter(effect.get(), i);
+			float parameter = m_server->getParameter(m_effect.get(), i);
 			params.push_back(parameter);
 		}
 
-		if (!verifyPluginIntegrity())
+		if (!verifyProxy())
 			return "";
 
 		if (!params.empty())
@@ -387,7 +369,7 @@ std::string VSTPlugin::getChunk(ChunkType type)
 	return "";
 }
 
-void VSTPlugin::setChunk(ChunkType type, std::string & data)
+void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 {
 	if (data.size() == 0)
 	{
@@ -400,17 +382,10 @@ void VSTPlugin::setChunk(ChunkType type, std::string & data)
 	cbase64_decodestate decoder;
 	cbase64_init_decodestate(&decoder);
 	std::string decodedData;
-
-	if (!effect)
+	
+	if (m_effect == nullptr || m_server == nullptr)
 	{
 		blog(LOG_WARNING, "VST Plug-in: setChunk effect is not ready yet");
-		return;
-	}
-
-	if (this->chunkDataPath != this->pluginPath)
-	{
-		blog(LOG_WARNING, "VST Plug-in: setChunk Invalid chunk settings for plugin. Path missmatch.");
-		data = "";
 		return;
 	}
 
@@ -418,12 +393,12 @@ void VSTPlugin::setChunk(ChunkType type, std::string & data)
 	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
 	data = "";
 	
-	if (effect->flags & effFlagsProgramChunks && type != ChunkType::Parameter)
+	if (m_effect->flags & effFlagsProgramChunks && type != VstChunkType::Parameter)
 	{
-		auto ret = afx_dispatcher(effect.get(), effSetChunk, type == ChunkType::Bank ? 0 : 1, decodedData.length(), &decodedData[0], 0.0, decodedData.length());
+		auto ret = m_server->dispatcher(m_effect.get(), effSetChunk, type == VstChunkType::Bank ? 0 : 1, decodedData.length(), &decodedData[0], 0.0, decodedData.length());
 		blog(LOG_WARNING, "VST Plug-in: setChunk get %08X from effSetChunk", ret);
 	}
-	else if (!(effect->flags & effFlagsProgramChunks) && type == ChunkType::Parameter)
+	else if (!(m_effect->flags & effFlagsProgramChunks) && type == VstChunkType::Parameter)
 	{
 		const char * p_chars  = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);
@@ -432,46 +407,65 @@ void VSTPlugin::setChunk(ChunkType type, std::string & data)
 
 		std::vector<float> params(p_floats, p_floats + size);
 
-		if (params.size() != (size_t)effect->numParams)
+		if (params.size() != (size_t)m_effect->numParams)
 		{
 			blog(LOG_WARNING, "VST Plug-in: setChunk wrong number of params");
 			return;
 		}
 
-		for (int i = 0; i < effect->numParams; i++)
-			afx_setParameter(effect.get(), i, params[i]);
+		for (int i = 0; i < m_effect->numParams; i++)
+			m_server->setParameter(m_effect.get(), i, params[i]);
 	}
 
-	verifyPluginIntegrity();
+	verifyProxy();
 	blog(LOG_WARNING, "VST Plug-in: setChunk finished");
 }
 
 void VSTPlugin::setProgram(const int programNumber)
 {
 	blog(LOG_ERROR, "VST Plug-in: setProgram for %d", programNumber);
-	if (programNumber < effect->numPrograms) {
-		int ret = afx_dispatcher(effect.get(), effSetProgram, 0, programNumber, nullptr, 0.0f, 0);
+	
+	if (m_effect == nullptr || m_server == nullptr)
+	{
+		blog(LOG_WARNING, "VST Plug-in: setProgram effect is not ready yet");
+		return;
+	}
+
+	if (programNumber < m_effect->numPrograms)
+	{
+		int ret = m_server->dispatcher(m_effect.get(), effSetProgram, 0, programNumber, nullptr, 0.0f, 0);
 		blog(LOG_ERROR, "VST Plug-in: setProgram get %d from effSetProgram", ret);
-	} else {
+	}
+	else
+	{
 		blog(LOG_ERROR, "VST Plug-in: setProgram Failed to load program, number was outside possible program range.");
 	}
+
+	verifyProxy();
 }
 
 int VSTPlugin::getProgram()
 {
-	int ret = afx_dispatcher(effect.get(), effGetProgram, 0, 0, nullptr, 0.0f, 0);
+	if (m_effect == nullptr || m_server == nullptr)
+	{
+		blog(LOG_WARNING, "VST Plug-in: getProgram effect is not ready yet");
+		return 0;
+	}
+
+	int ret = m_server->dispatcher(m_effect.get(), effGetProgram, 0, 0, nullptr, 0.0f, 0);
 	blog(LOG_ERROR, "VST Plug-in: getProgram get %d from effGetProgram", ret);
+	verifyProxy();
 	return ret;
 }
 
 void VSTPlugin::getSourceNames()
 {
 	/* Only call inside the vst_filter_audio function! */
-	sourceName = obs_source_get_name(obs_filter_get_target(sourceContext));
-	filterName = obs_source_get_name(sourceContext);
+	m_sourceName = obs_source_get_name(obs_filter_get_target(m_sourceContext));
+	m_filterName = obs_source_get_name(m_sourceContext);
 }
 
 std::string VSTPlugin::getPluginPath()
 {
-	return pluginPath;
+	return m_pluginPath;
 }

@@ -42,9 +42,6 @@ MODULE_EXPORT const char *obs_module_description(void)
 	return "VST 2.x Plug-in filter";
 }
 
-bool isUpdateFromCreate      = false;
-bool isUpdateFromCloseEditor = false;
-
 static void vst_save(void *data, obs_data_t *settings);
 
 static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
@@ -63,8 +60,6 @@ static bool open_editor_button_clicked(obs_properties_t *props, obs_property_t *
 
 static bool close_editor_button_clicked(obs_properties_t *props, obs_property_t *property, void *data)
 {
-	isUpdateFromCloseEditor = true;
-
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 	blog(LOG_WARNING, "VST Plug-in: Close editor btn clicked");
 
@@ -94,33 +89,30 @@ static void vst_update(void *data, obs_data_t *settings)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
 
-	vstPlugin->openInterfaceWhenActive = obs_data_get_bool(settings, OPEN_WHEN_ACTIVE_VST_SETTINGS);
+	vstPlugin->setOpenInterfaceWhenActive(obs_data_get_bool(settings, OPEN_WHEN_ACTIVE_VST_SETTINGS));
 	const char *path = obs_data_get_string(settings, "plugin_path");
 
 	if (!path || !strcmp(path, ""))
 		return;
 
-	blog(LOG_WARNING, "VST Plug-in: update settings called from create: %d", isUpdateFromCreate);
-
 	bool load_vst = false;
 
-	if (!vstPlugin->isEffectCrashed())
+	if (!vstPlugin->isProxyDisconnected())
 	{
 		// Load VST plugin only when creating the filter or when changing plugin
 		if (vstPlugin->getPluginPath() != std::string(path) || vstPlugin->getEffect() == nullptr)
 			load_vst = true;
 	}
 
-	if (load_vst) {
-		
-		vstPlugin->unloadEffect();
+	if (load_vst)
+	{
+		const bool openWindow = vstPlugin->hasWindowOpen();
 
-		if (!vstPlugin->editorWidget) {
-			vstPlugin->editorWidget = std::make_unique<EditorWidget>(vstPlugin);
-			vstPlugin->editorWidget->buildEffectContainer();
-		}
-		
-		vstPlugin->send_loadEffectFromPath(std::string(path));
+		vstPlugin->unloadEffect();
+		vstPlugin->loadEffectFromPath(path);
+
+		if (openWindow)
+			vstPlugin->openEditor();
 
 		// Load chunk only when creating the filter
 		const char *chunkDataBankV3 = obs_data_get_string(settings, "chunk_data_0_v3");
@@ -128,94 +120,115 @@ static void vst_update(void *data, obs_data_t *settings)
 		const char *chunkDataPV3 = obs_data_get_string(settings, "chunk_data_p_v3");
 		const char *chunkDataPathV3 = obs_data_get_string(settings, "chunk_data_path_v3");
 
-		vstPlugin->chunkDataBank = "";
-		vstPlugin->chunkDataProgram = "";
-		vstPlugin->chunkDataParameter = "";
-		vstPlugin->chunkDataPath = "";
-		if (chunkDataPathV3 != NULL && strlen(chunkDataPathV3) > 0) { //check if we have v3
+		std::string str_chunkDataBank = "";
+		std::string str_chunkDataProgram = "";
+		std::string str_chunkDataParameter = "";
+		std::string str_chunkDataPath = "";
+
+		if (chunkDataPathV3 != NULL && strlen(chunkDataPathV3) > 0)
+		{
+			// check if we have v3
 			blog(LOG_DEBUG, "VST Plug-in: Got path from v3 chunk data continue loading v3");
-			vstPlugin->chunkDataBank = chunkDataBankV3;
-			vstPlugin->chunkDataProgram = chunkDataProgramV3;
-			vstPlugin->chunkDataParameter = chunkDataPV3;
-			vstPlugin->chunkDataPath = chunkDataPathV3;
-		} else {  // migrations from 0.27.1 and from 1.0.0-1.0.3
+			str_chunkDataBank = chunkDataBankV3;
+			str_chunkDataProgram = chunkDataProgramV3;
+			str_chunkDataParameter = chunkDataPV3;
+			str_chunkDataPath = chunkDataPathV3;
+		}
+		else
+		{
+			// migrations from 0.27.1 and from 1.0.0-1.0.3
 			const char *chunkDataV2 = obs_data_get_string(settings, "chunk_data_v2");
-			if (chunkDataV2 != NULL && strlen(chunkDataV2)>0) { //check if we have v2
+			if (chunkDataV2 != NULL && strlen(chunkDataV2)>0)
+			{
+				// check if we have v2
 				blog(LOG_DEBUG, "VST Plug-in: Got v2 chunk data continue migrating from v2");
 				std::string chunkData = chunkDataV2;
 				size_t pathPos = chunkData.find_first_of('|');
-				if (pathPos == std::string::npos) { //strange not to have path in v2
-					vstPlugin->chunkDataPath = path;
-					vstPlugin->chunkDataBank = chunkData;
-					vstPlugin->chunkDataParameter = vstPlugin->chunkDataBank;
-				} else {
-					vstPlugin->chunkDataPath = chunkData.substr(0, pathPos);
+
+				if (pathPos == std::string::npos)
+				{
+					// strange not to have path in v2
+					str_chunkDataPath = path;
+					str_chunkDataBank = chunkData;
+					str_chunkDataParameter = str_chunkDataBank;
+				}
+				else
+				{
+					str_chunkDataPath = chunkData.substr(0, pathPos);
 					size_t lastPos = chunkData.find_last_of('|');
-					vstPlugin->chunkDataBank = chunkData.substr(lastPos+1);
-					vstPlugin->chunkDataParameter = vstPlugin->chunkDataBank;
+					str_chunkDataBank = chunkData.substr(lastPos+1);
+					str_chunkDataParameter = str_chunkDataBank;
 				}
 
 				obs_data_set_string(settings, "chunk_data_v2", "");
-			} else {
+			}
+			else
+			{
 				const char *chunkDataOld = obs_data_get_string(settings, "chunk_data");
 				blog(LOG_DEBUG, "VST Plug-in: Got old version chunk data continue migrating from old version");
-				if (chunkDataOld != NULL && strlen(chunkDataOld)>0) { // do we have old data
+
+				if (chunkDataOld != NULL && strlen(chunkDataOld)>0)
+				{
+					// do we have old data
 					std::string chunkData = chunkDataOld;
 					size_t pathPos = chunkData.find_first_of('|');
-					if (pathPos == std::string::npos) {
-						vstPlugin->chunkDataPath = path;
-						vstPlugin->chunkDataProgram = chunkData;
-						vstPlugin->chunkDataParameter = vstPlugin->chunkDataProgram;
-					} else {
-						vstPlugin->chunkDataPath = chunkData.substr(0, pathPos);
+
+					if (pathPos == std::string::npos)
+					{
+						str_chunkDataPath = path;
+						str_chunkDataProgram = chunkData;
+						str_chunkDataParameter = str_chunkDataProgram;
+					}
+					else
+					{
+						str_chunkDataPath = chunkData.substr(0, pathPos);
 						size_t lastPos = chunkData.find_last_of('|');
-						vstPlugin->chunkDataBank = chunkData.substr(lastPos+1);
-						vstPlugin->chunkDataParameter = vstPlugin->chunkDataBank;
+						str_chunkDataBank = chunkData.substr(lastPos+1);
+						str_chunkDataParameter = str_chunkDataBank;
 						obs_data_set_string(settings, "chunk_data", "");
 					}
-				} else {
+				}
+				else
+				{
 					// no data just create empty
 				}
 			}
 		}
 
-		blog(LOG_DEBUG, "VST Plug-in: Loading chunk for filter %s | %s | %s | %s ", vstPlugin->chunkDataBank.c_str(), vstPlugin->chunkDataProgram.c_str(), vstPlugin->chunkDataParameter.c_str(), vstPlugin->chunkDataPath.c_str());
-
-		if (vstPlugin->chunkDataPath.size() > 0 && isUpdateFromCreate) {
-			isUpdateFromCreate = false;
-			vstPlugin->send_setChunk();
+		if (str_chunkDataPath.size() > 0)
+		{
+			vstPlugin->setChunk(VstChunkType::Parameter, str_chunkDataParameter);
+			vstPlugin->setChunk(VstChunkType::Program, str_chunkDataProgram);
+			vstPlugin->setChunk(VstChunkType::Bank, str_chunkDataBank);
 		}
-	} else {
-		blog(LOG_WARNING, "VST Plug-in: not loading path %s because same path or editor still open", path);
-	}
 
-	// Save chunk only after closing the editor
-
-	if (isUpdateFromCloseEditor) {
-		blog(LOG_WARNING, "VST Plug-in: update settings from closed editor");
-		vst_save(data, settings);
-		isUpdateFromCloseEditor = false;
-	}
+		blog(LOG_DEBUG, "VST Plug-in: Loading chunk for filter %s | %s | %s | %s ", str_chunkDataBank.c_str(), str_chunkDataProgram.c_str(), str_chunkDataParameter.c_str(), str_chunkDataPath.c_str());
+	}	
+	
+	vst_save(data, settings);
 }
 
 static void *vst_create(obs_data_t *settings, obs_source_t *filter)
 {
-	isUpdateFromCreate = true;
-
 	VSTPlugin *vstPlugin = new VSTPlugin(filter);
-
 	vst_update(vstPlugin, settings);
-
 	return vstPlugin;
 }
 
 static void vst_save(void *data, obs_data_t *settings)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
+	
+	auto chunk1 = vstPlugin->getChunk(VstChunkType::Bank);
+	auto chunk2 = vstPlugin->getChunk(VstChunkType::Program);
+	auto chunk3 = vstPlugin->getChunk(VstChunkType::Parameter);
 
-	obs_data_set_string(settings, "chunk_data_0_v3", vstPlugin->getChunk(ChunkType::Bank).c_str());
-	obs_data_set_string(settings, "chunk_data_1_v3", vstPlugin->getChunk(ChunkType::Program).c_str());
-	obs_data_set_string(settings, "chunk_data_p_v3", vstPlugin->getChunk(ChunkType::Parameter).c_str());
+	if (vstPlugin->verifyProxy())
+	{
+		obs_data_set_string(settings, "chunk_data_0_v3", chunk1.c_str());
+		obs_data_set_string(settings, "chunk_data_1_v3", chunk2.c_str());
+		obs_data_set_string(settings, "chunk_data_p_v3", chunk3.c_str());
+	}
 
 	const char *path = obs_data_get_string(settings, "plugin_path");
 	obs_data_set_string(settings, "chunk_data_path_v3", path);
