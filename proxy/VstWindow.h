@@ -6,7 +6,7 @@
 #include <string>
 #include <mutex>
 
-#include "..\VstWinDefs.h"
+#include "..\win\VstWinDefs.h"
 
 class AEffect;
 

@@ -1,7 +1,7 @@
 #include "VstModule.h"
 
 #include "..\vst_header\aeffectx.h"
-#include "..\StlBuffer.h"
+#include "..\headers\StlBuffer.h"
 
 #include "obs_vst_api.grpc.pb.h"
 
