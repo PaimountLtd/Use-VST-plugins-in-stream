@@ -12,7 +12,9 @@
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
-	::SetUnhandledExceptionFilter(CrashHandler::unhandledHandler);
+	// preview url
+	CrashHandler handler;
+	handler.start("https://sentry.io/api/1406061/minidump/?sentry_key=7376a60665cd40bebbd59d6bf8363172");
 
 	int argc = 0;
 	LPWSTR *argv = ::CommandLineToArgvW(pCmdLine, &argc);
