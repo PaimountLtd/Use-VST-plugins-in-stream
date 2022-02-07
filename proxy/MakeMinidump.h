@@ -44,8 +44,11 @@ public:
 
 		if (!rc)
 			return false;
+
+		return true;
 	}
 
+private:
 	crashpad::CrashpadClient m_client;
 	std::unique_ptr<crashpad::CrashReportDatabase> m_database;
 	base::FilePath m_db;
