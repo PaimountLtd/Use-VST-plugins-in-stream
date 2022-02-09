@@ -142,8 +142,8 @@ bool VSTPlugin::verifyProxy()
 		if (m_proxyDisconnected)
 		{
 			#ifdef WIN32
-				::MessageBoxA(NULL, (std::filesystem::path(m_pluginPath).filename().string() + " has stopped working.\n\nAfter closing this popup, audio will continue but the filter is now disabled. You may restart the application or recreate the filter to enable it again.").c_str(), "VST Filter Error",
-					MB_ICONERROR | MB_TOPMOST);
+				::MessageBoxA(GetDesktopWindow(), (std::filesystem::path(m_pluginPath).filename().string() + " has stopped working.\n\nAfter closing this popup, audio will continue but the filter is now disabled. You may restart the application or recreate the filter to enable it again.").c_str(), "VST Filter Error",
+					MB_ICONERROR | MB_SYSTEMMODAL);
 			#endif
 
 			stopProxy();
