@@ -244,3 +244,7 @@ if (WIN32)
 	target_compile_features(win-streamlabs-vst PRIVATE cxx_std_17)
 
 endif()
+
+if (WIN32)
+	install_obs_plugin(win-streamlabs-vst)
+endif(WIN32)
