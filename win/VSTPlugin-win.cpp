@@ -50,7 +50,7 @@ AEffect* VSTPlugin::loadEffect()
 
 	if (!CreateProcessW(L"win-streamlabs-vst.exe", (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer))
 	{
-		::MessageBoxA(NULL, (std::filesystem::path(m_pluginPath).filename().string() + " failed to launch.\n\nAfter closing this popup, audio will continue but the filter is not enabled. You may restart the application or recreate the filter to try again.").c_str(), "VST Filter Error",
+		::MessageBoxA(NULL, (std::filesystem::path(m_pluginPath).filename().string() + " failed to launch.\n\n You may restart the application or recreate the filter to try again.").c_str(), "VST Filter Error",
 			MB_ICONERROR | MB_TOPMOST);
 
 		blog(LOG_ERROR, "VST Plug-in: can't start vst server, GetLastError = %d", GetLastError());

@@ -62,7 +62,7 @@ public:
 	
 	bool isEditorOpen();
 	bool hasWindowOpen();
-	bool verifyProxy();
+	bool verifyProxy(const bool notifyAudioPause = false);
 	bool isProxyDisconnected() const { return m_proxyDisconnected; }
 
 	AEffect* loadEffect();

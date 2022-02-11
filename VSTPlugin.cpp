@@ -127,7 +127,7 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 		openEditor();
 }
 
-bool VSTPlugin::verifyProxy()
+bool VSTPlugin::verifyProxy(const bool notifyAudioPause /*= false*/)
 {
 	if (m_effect == nullptr)
 		return false;
@@ -141,9 +141,15 @@ bool VSTPlugin::verifyProxy()
 
 		if (m_proxyDisconnected)
 		{
+			std::string msg;
+
+			if (notifyAudioPause)
+				msg = (std::filesystem::path(m_pluginPath).filename().string() + " has stopped working.\n\nThe audio it modifies has paused and will continue after closing this popup but the filter is now disabled. You may restart the application or recreate the filter to enable it again.");
+			else
+				msg = (std::filesystem::path(m_pluginPath).filename().string() + " has stopped working.\n\nThe filter has been disabled. You may restart the application or recreate the filter to enable it again.");
+
 			#ifdef WIN32
-				::MessageBoxA(GetDesktopWindow(), (std::filesystem::path(m_pluginPath).filename().string() + " has stopped working.\n\nAfter closing this popup, audio will continue but the filter is now disabled. You may restart the application or recreate the filter to enable it again.").c_str(), "VST Filter Error",
-					MB_ICONERROR | MB_SYSTEMMODAL);
+				::MessageBoxA(GetDesktopWindow(), msg.c_str(), "VST Filter Error", MB_ICONERROR | MB_SYSTEMMODAL);
 			#endif
 
 			stopProxy();
@@ -194,7 +200,7 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 
 			m_server->processReplacing(m_effect.get(), adata, m_outputs, frames, VST_MAX_CHANNELS);
 
-			if (!verifyProxy())
+			if (!verifyProxy(true))
 			{
 				m_effectStatusMutex.unlock();
 				return audio;
