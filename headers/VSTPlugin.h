@@ -100,7 +100,7 @@ private:
 
 	obs_source_t* m_sourceContext;
 
-	std::unique_ptr<grpc_vst_communicatorClient> m_server;
+	std::unique_ptr<grpc_vst_communicatorClient> m_remote;
 
 #ifdef WIN32
 	PROCESS_INFORMATION m_winServer;

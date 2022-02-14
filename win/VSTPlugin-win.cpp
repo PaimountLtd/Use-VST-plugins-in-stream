@@ -42,7 +42,7 @@ AEffect* VSTPlugin::loadEffect()
 	const int32_t portNumber = chooseProxyPort();
 
 	STARTUPINFOW si;
-	ZeroMemory(&si, sizeof(si));
+	memset(&si, NULL, sizeof(si));
 	si.cb = sizeof(si);
 	
 	m_effect = std::make_unique<AEffect>();
@@ -58,8 +58,8 @@ AEffect* VSTPlugin::loadEffect()
 		return nullptr;
 	}
 	
-	m_server = std::make_unique<grpc_vst_communicatorClient>(grpc::CreateChannel("localhost:" + std::to_string(portNumber), grpc::InsecureChannelCredentials()));
-	m_server->updateAEffect(m_effect.get());
+	m_remote = std::make_unique<grpc_vst_communicatorClient>(grpc::CreateChannel("localhost:" + std::to_string(portNumber), grpc::InsecureChannelCredentials()));
+	m_remote->updateAEffect(m_effect.get());
 
 	if (!verifyProxy())
 		return nullptr;
@@ -104,10 +104,10 @@ void VSTPlugin::stopProxy()
 
 	auto movedPtr = move(m_effect);
 
-	if (m_server == nullptr)
+	if (m_remote == nullptr)
 		return;
 	
-	m_server->stopServer(movedPtr.get());
+	m_remote->stopServer(movedPtr.get());
 	
 	// Wait for graceful end in a thread, don't block here
 	std::thread([](HANDLE hProcess, HANDLE hThread, INT nWaitTime) {

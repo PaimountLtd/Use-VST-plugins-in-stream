@@ -108,17 +108,17 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 		return;
 	}
 	
-	m_server->dispatcher(m_effect.get(), effGetEffectName, 0, 0, m_effectName, 0, 64);
-	m_server->dispatcher(m_effect.get(), effGetVendorString, 0, 0, m_vendorString, 0, 64);
-	m_server->dispatcher(m_effect.get(), effOpen, 0, 0, nullptr, 0.0f, 0);
+	m_remote->dispatcher(m_effect.get(), effGetEffectName, 0, 0, m_effectName, 0, 64);
+	m_remote->dispatcher(m_effect.get(), effGetVendorString, 0, 0, m_vendorString, 0, 64);
+	m_remote->dispatcher(m_effect.get(), effOpen, 0, 0, nullptr, 0.0f, 0);
 
 	// Set some default properties
 	auto sampleRate = audio_output_get_sample_rate(obs_get_audio());
-	m_server->dispatcher(m_effect.get(), effSetSampleRate, 0, 0, nullptr, static_cast<float>(sampleRate), 0);
+	m_remote->dispatcher(m_effect.get(), effSetSampleRate, 0, 0, nullptr, static_cast<float>(sampleRate), 0);
 
 	int blocksize = BLOCK_SIZE;
-	m_server->dispatcher(m_effect.get(), effSetBlockSize, 0, blocksize, nullptr, 0.0f, 0);
-	m_server->dispatcher(m_effect.get(), effMainsChanged, 0, 1, nullptr, 0, 0);
+	m_remote->dispatcher(m_effect.get(), effSetBlockSize, 0, blocksize, nullptr, 0.0f, 0);
+	m_remote->dispatcher(m_effect.get(), effMainsChanged, 0, 1, nullptr, 0, 0);
 
 	if (!verifyProxy())
 		return;
@@ -135,9 +135,9 @@ bool VSTPlugin::verifyProxy(const bool notifyAudioPause /*= false*/)
 	if (m_proxyDisconnected)
 		return false;
 
-	if (m_server != nullptr)
+	if (m_remote != nullptr)
 	{
-		m_proxyDisconnected = !m_server->m_connected;
+		m_proxyDisconnected = !m_remote->m_connected;
 
 		if (m_proxyDisconnected)
 		{
@@ -178,7 +178,7 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 	if (!m_effectStatusMutex.try_lock())
 		return audio;
 	
-	if (m_effect != nullptr && m_server != nullptr)
+	if (m_effect != nullptr && m_remote != nullptr)
 	{
 		uint32_t passes = (audio->frames + BLOCK_SIZE - 1) / BLOCK_SIZE;
 		uint32_t extra  = audio->frames % BLOCK_SIZE;
@@ -198,7 +198,7 @@ obs_audio_data *VSTPlugin::process(struct obs_audio_data *audio)
 					adata[d] = m_inputs[d];
 			};
 
-			m_server->processReplacing(m_effect.get(), adata, m_outputs, frames, VST_MAX_CHANNELS);
+			m_remote->processReplacing(m_effect.get(), adata, m_outputs, frames, VST_MAX_CHANNELS);
 
 			if (!verifyProxy(true))
 			{
@@ -228,11 +228,11 @@ void VSTPlugin::unloadEffect()
 	m_windowCreated = false;
 	m_proxyDisconnected = false;
 
-	if (m_effect != nullptr && m_server != nullptr)
+	if (m_effect != nullptr && m_remote != nullptr)
 	{
-		m_server->dispatcher(m_effect.get(), effStopProcess, 0, 0, nullptr, 0, 0);
-		m_server->dispatcher(m_effect.get(), effMainsChanged, 0, 0, nullptr, 0, 0);
-		m_server->dispatcher(m_effect.get(), effClose, 0, 0, nullptr, 0.0f, 0);
+		m_remote->dispatcher(m_effect.get(), effStopProcess, 0, 0, nullptr, 0, 0);
+		m_remote->dispatcher(m_effect.get(), effMainsChanged, 0, 0, nullptr, 0, 0);
+		m_remote->dispatcher(m_effect.get(), effClose, 0, 0, nullptr, 0.0f, 0);
 	}
 
 	stopProxy();
@@ -258,15 +258,15 @@ void VSTPlugin::openEditor()
 
 	blog(LOG_WARNING, "VST Plug-in: openEditor send_show");	
 
-	if (m_effect != nullptr && m_server != nullptr)
+	if (m_effect != nullptr && m_remote != nullptr)
 	{
 		if (!m_windowCreated)
 		{
-			m_server->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_CREATE_WINDOW);
+			m_remote->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_CREATE_WINDOW);
 			m_windowCreated = true;
 		}
 
-		m_server->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_SHOW);
+		m_remote->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_SHOW);
 		m_is_open = true;
 	}
 
@@ -278,9 +278,9 @@ void VSTPlugin::hideEditor()
 	if (isProxyDisconnected())
 		return;
 		
-	if (m_windowCreated && m_effect != nullptr && m_server != nullptr)
+	if (m_windowCreated && m_effect != nullptr && m_remote != nullptr)
 	{
-		m_server->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_HIDE);
+		m_remote->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_HIDE);
 		m_is_open = false;
 	}
 
@@ -293,9 +293,9 @@ void VSTPlugin::closeEditor()
 	
 	blog(LOG_WARNING, "VST Plug-in: closeEditor, sending close...");
 
-	if (m_windowCreated && m_effect != nullptr && m_server != nullptr)
+	if (m_windowCreated && m_effect != nullptr && m_remote != nullptr)
 	{
-		m_server->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_CLOSE);
+		m_remote->sendHwndMsg(m_effect.get(), VstProxy::WM_USER_MSG::WM_USER_CLOSE);
 		m_windowCreated = false;
 	}
 
@@ -308,7 +308,7 @@ std::string VSTPlugin::getChunk(VstChunkType type)
 	std::string encodedData;
 	blog(LOG_INFO, "VST Plug-in: getChunk started");
 
-	if (m_effect == nullptr || m_server == nullptr)
+	if (m_effect == nullptr || m_remote == nullptr)
 	{
 		blog(LOG_WARNING, "VST Plug-in: getChunk, no effect loaded");
 		return "";
@@ -319,7 +319,7 @@ std::string VSTPlugin::getChunk(VstChunkType type)
 	if (m_effect->flags & effFlagsProgramChunks && type != VstChunkType::Parameter)
 	{
 		void *buf = nullptr;
-		intptr_t chunkSize = m_server->dispatcher(m_effect.get(), effGetChunk, int(type), 0, &buf, 0.0, 0);
+		intptr_t chunkSize = m_remote->dispatcher(m_effect.get(), effGetChunk, int(type), 0, &buf, 0.0, 0);
 
 		if (!verifyProxy())
 			return "";
@@ -345,7 +345,7 @@ std::string VSTPlugin::getChunk(VstChunkType type)
 
 		for (int i = 0; i < m_effect->numParams; i++)
 		{
-			float parameter = m_server->getParameter(m_effect.get(), i);
+			float parameter = m_remote->getParameter(m_effect.get(), i);
 			params.push_back(parameter);
 		}
 
@@ -389,7 +389,7 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 	cbase64_init_decodestate(&decoder);
 	std::string decodedData;
 	
-	if (m_effect == nullptr || m_server == nullptr)
+	if (m_effect == nullptr || m_remote == nullptr)
 	{
 		blog(LOG_WARNING, "VST Plug-in: setChunk effect is not ready yet");
 		return;
@@ -401,7 +401,7 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 	
 	if (m_effect->flags & effFlagsProgramChunks && type != VstChunkType::Parameter)
 	{
-		auto ret = m_server->dispatcher(m_effect.get(), effSetChunk, type == VstChunkType::Bank ? 0 : 1, decodedData.length(), &decodedData[0], 0.0, decodedData.length());
+		auto ret = m_remote->dispatcher(m_effect.get(), effSetChunk, type == VstChunkType::Bank ? 0 : 1, decodedData.length(), &decodedData[0], 0.0, decodedData.length());
 		blog(LOG_WARNING, "VST Plug-in: setChunk get %08X from effSetChunk", ret);
 	}
 	else if (!(m_effect->flags & effFlagsProgramChunks) && type == VstChunkType::Parameter)
@@ -420,7 +420,7 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 		}
 
 		for (int i = 0; i < m_effect->numParams; i++)
-			m_server->setParameter(m_effect.get(), i, params[i]);
+			m_remote->setParameter(m_effect.get(), i, params[i]);
 	}
 
 	verifyProxy();
@@ -431,7 +431,7 @@ void VSTPlugin::setProgram(const int programNumber)
 {
 	blog(LOG_ERROR, "VST Plug-in: setProgram for %d", programNumber);
 	
-	if (m_effect == nullptr || m_server == nullptr)
+	if (m_effect == nullptr || m_remote == nullptr)
 	{
 		blog(LOG_WARNING, "VST Plug-in: setProgram effect is not ready yet");
 		return;
@@ -439,7 +439,7 @@ void VSTPlugin::setProgram(const int programNumber)
 
 	if (programNumber < m_effect->numPrograms)
 	{
-		int ret = m_server->dispatcher(m_effect.get(), effSetProgram, 0, programNumber, nullptr, 0.0f, 0);
+		int ret = m_remote->dispatcher(m_effect.get(), effSetProgram, 0, programNumber, nullptr, 0.0f, 0);
 		blog(LOG_ERROR, "VST Plug-in: setProgram get %d from effSetProgram", ret);
 	}
 	else
@@ -452,13 +452,13 @@ void VSTPlugin::setProgram(const int programNumber)
 
 int VSTPlugin::getProgram()
 {
-	if (m_effect == nullptr || m_server == nullptr)
+	if (m_effect == nullptr || m_remote == nullptr)
 	{
 		blog(LOG_WARNING, "VST Plug-in: getProgram effect is not ready yet");
 		return 0;
 	}
 
-	int ret = m_server->dispatcher(m_effect.get(), effGetProgram, 0, 0, nullptr, 0.0f, 0);
+	int ret = m_remote->dispatcher(m_effect.get(), effGetProgram, 0, 0, nullptr, 0.0f, 0);
 	blog(LOG_ERROR, "VST Plug-in: getProgram get %d from effGetProgram", ret);
 	verifyProxy();
 	return ret;
