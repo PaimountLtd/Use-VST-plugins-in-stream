@@ -14,7 +14,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 {
 	// preview url
 	CrashHandler handler;
-	handler.start("https://sentry.io/api/1406061/minidump/?sentry_key=7376a60665cd40bebbd59d6bf8363172");
+	handler.start("https://sentry.io/api/6205131/minidump/?sentry_key=a9b80de8a8f74a8ba8d40abe453e699f");
 
 	int argc = 0;
 	LPWSTR *argv = ::CommandLineToArgvW(pCmdLine, &argc);
