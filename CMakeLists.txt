@@ -155,7 +155,9 @@ if (WIN32)
 	############################
 	# Setup crashpad libraries
 	############################
-	
+
+	if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+
 	include(ExternalProject)
 	include(DownloadProject.cmake)
 
@@ -240,6 +242,8 @@ if (WIN32)
 	add_dependencies(crashpad_util crashpad_client)
 
 	target_link_libraries(win-streamlabs-vst crashpad)
+
+	endif()
 
 	target_compile_features(win-streamlabs-vst PRIVATE cxx_std_17)
 
