@@ -16,98 +16,115 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "../headers/VSTPlugin.h"
-#include "../headers/vst-plugin-callbacks.hpp"
+#include "VstWinDefs.h"
+
+#include <obs_vst_api.grpc.pb.h>
 
 #include <util/platform.h>
 #include <windows.h>
 #include <string>
+#include <grpcpp/grpcpp.h>
+#include <filesystem>
 
-AEffect* VSTPlugin::getEffect() {
-	return effect;
-}
+#include "../headers/grpc_vst_communicatorClient.h"
 
-AEffect *VSTPlugin::loadEffect()
+using grpc::Channel;
+using grpc::ClientContext;
+using grpc::Status;
+
+AEffect* VSTPlugin::loadEffect()
 {
-	AEffect *plugin = nullptr;
-	std::string dir    = pluginPath;
-
-	blog(LOG_WARNING, "VST Plug-in: path %s", dir.c_str());
-
-	while (dir.back() != '/')
-		dir.pop_back();
+	blog(LOG_WARNING, "VST Plug-in: path %s", m_pluginPath.c_str());
 
 	wchar_t *wpath;
-	os_utf8_to_wcs_ptr(pluginPath.c_str(), 0, &wpath);
-	wchar_t *wdir;
-	os_utf8_to_wcs_ptr(dir.c_str(), 0, &wdir);
+	os_utf8_to_wcs_ptr(m_pluginPath.c_str(), 0, &wpath);
 
-	SetDllDirectory(wdir);
-	dllHandle = LoadLibraryW(wpath);
-	SetDllDirectory(NULL);
-	bfree(wpath);
-	bfree(wdir);
-	if (dllHandle == nullptr) {
+	const int32_t portNumber = chooseProxyPort();
 
-		DWORD errorCode = GetLastError();
+	STARTUPINFOW si;
+	memset(&si, NULL, sizeof(si));
+	si.cb = sizeof(si);
+	
+	m_effect = std::make_unique<AEffect>();
+	std::wstring startparams = L"streamlabs_vst.exe \"" + std::wstring(wpath) + L"\" " + std::to_wstring(portNumber) + L" " + std::to_wstring(GetCurrentProcessId());
 
-		// Display the error message and exit the process
-		if (errorCode == ERROR_BAD_EXE_FORMAT) {
-			blog(LOG_WARNING, "VST Plug-in: Could not open library, wrong architecture.");
-		} else {
-			blog(LOG_WARNING, "VST Plug-in: Failed trying to load VST from '%s', error %d\n",
-			     pluginPath.c_str(),
-			     GetLastError());
+	if (!CreateProcessW(L"win-streamlabs-vst.exe", (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer))
+	{
+		::MessageBoxA(NULL, (std::filesystem::path(m_pluginPath).filename().string() + " failed to launch.\n\n You may restart the application or recreate the filter to try again.").c_str(), "VST Filter Error",
+			MB_ICONERROR | MB_TOPMOST);
+
+		blog(LOG_ERROR, "VST Plug-in: can't start vst server, GetLastError = %d", GetLastError());
+		m_effect = nullptr;
+		return nullptr;
+	}
+	
+	m_remote = std::make_unique<grpc_vst_communicatorClient>(grpc::CreateChannel("localhost:" + std::to_string(portNumber), grpc::InsecureChannelCredentials()));
+	m_remote->updateAEffect(m_effect.get());
+
+	if (!verifyProxy())
+		return nullptr;
+
+	return m_effect.get();
+}
+
+int32_t VSTPlugin::chooseProxyPort()
+{
+	int32_t result = 0;
+
+#ifdef WIN32
+	struct sockaddr_in local;
+	SOCKET sockt = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+
+	if (sockt == INVALID_SOCKET)
+		return result;
+
+	local.sin_addr.s_addr = htonl(INADDR_ANY);
+	local.sin_family = AF_INET;
+	local.sin_port = htons(0);
+
+	// Bind
+	if (::bind(sockt, (struct sockaddr*)&local, sizeof(local)) == SOCKET_ERROR)
+		return result;
+	
+	struct sockaddr_in my_addr;
+	memset(&my_addr, NULL, sizeof(my_addr));
+	int len = sizeof(my_addr);
+	getsockname(sockt, (struct sockaddr *) &my_addr, &len);
+	result = ntohs(my_addr.sin_port);
+
+	closesocket(sockt);
+#endif
+	return result;
+}
+
+void VSTPlugin::stopProxy()
+{
+	if (m_effect == nullptr)
+		return;
+
+	auto movedPtr = move(m_effect);
+
+	if (m_remote == nullptr)
+		return;
+	
+	m_remote->stopServer(movedPtr.get());
+	
+	// Wait for graceful end in a thread, don't block here
+	std::thread([](HANDLE hProcess, HANDLE hThread, INT nWaitTime) {
+		
+		// Might have to kill it, wait a moment but note that wait time is 0 if tcp connection already isn't valid
+		if (WaitForSingleObject(hProcess, nWaitTime) == WAIT_TIMEOUT) {
+			if (TerminateProcess(hProcess, 0) == FALSE) {
+				blog(LOG_ERROR, "VST Plug-in: process is stuck somehow cannot terminate, GetLastError = %d", GetLastError());
+			}
 		}
-		return nullptr;
-	}
 
-	blog(LOG_WARNING, "VST Plug-in: Opening main entry point from plugin path %s", pluginPath.c_str());
-	vstPluginMain mainEntryPoint = (vstPluginMain)GetProcAddress(dllHandle, "VSTPluginMain");
+		CloseHandle(hProcess);
+		CloseHandle(hThread);
 
-	if (mainEntryPoint == nullptr) {
-		mainEntryPoint = (vstPluginMain)GetProcAddress(dllHandle, "VstPluginMain()");
-	}
+	}, m_winServer.hProcess,
+	   m_winServer.hThread,
+	   m_proxyDisconnected ? 3000 : 0).detach();
 
-	if (mainEntryPoint == nullptr) {
-		mainEntryPoint = (vstPluginMain)GetProcAddress(dllHandle, "main");
-	}
-
-	if (mainEntryPoint == nullptr) {
-		blog(LOG_WARNING, "VST Plug-in: Couldn't get a pointer to plug-in's main()");
-		unloadLibrary();
-		return nullptr;
-	}
-
-	// Instantiate the plug-in
-	plugin       = mainEntryPoint(hostCallback_static);
-	if (plugin == nullptr) {
-		blog(LOG_WARNING, "VST Plug-in: Failed to get filter object from a plugin");
-		unloadLibrary();
-		return nullptr;
-	}
-
-	plugin->user = this;
-	return plugin;
-}
-
-void VSTPlugin::send_loadEffectFromPath(std::string path) {
-	editorWidget->send_loadEffectFromPath(path);
-}
-
-void VSTPlugin::send_setChunk()
-{
-	editorWidget->send_setChunk();
-}
-
-void VSTPlugin::send_unloadEffect() {
-
-}
-
-
-void VSTPlugin::unloadLibrary()
-{
-	if (dllHandle) {
-		FreeLibrary(dllHandle);
-		dllHandle = nullptr;
-	}
+	m_winServer = {};
 }

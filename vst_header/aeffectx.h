@@ -23,6 +23,7 @@
  */
 
 #include <stdint.h>
+#include <atomic>
 
 #ifndef _AEFFECTX_H
 #define _AEFFECTX_H
@@ -253,7 +254,7 @@ class AEffect
 	public:
 		// Never use virtual functions!!!
 		// 00-03
-		int magic;
+		int magic{ 0 };
 		// dispatcher 04-07
 		intptr_t (* dispatcher)( AEffect * , int , int , intptr_t, void * , float );
 		// process, quite sure 08-0b
