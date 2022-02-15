@@ -155,91 +155,93 @@ if (WIN32)
 	############################
 	# Setup crashpad libraries
 	############################
-	
-	include(ExternalProject)
-	include(DownloadProject.cmake)
 
-	if(WIN32)
-		download_project(
-			PROJ crashpad
-			URL https://obsstudionodes3.streamlabs.com/crashpad/crashpad-release-1.0.21-win-x64.tar.gz
-			UPDATE_DISCONNECTED 1
+	if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+		include(ExternalProject)
+		include(DownloadProject.cmake)
+
+		if(WIN32)
+			download_project(
+				PROJ crashpad
+				URL https://obsstudionodes3.streamlabs.com/crashpad/crashpad-release-1.0.21-win-x64.tar.gz
+				UPDATE_DISCONNECTED 1
+			)
+		elseif(APPLE)
+			download_project(
+				PROJ crashpad
+				URL https://obsstudionodes3.streamlabs.com/crashpad/crashpad-release-1.0.21-osx.zip
+				UPDATE_DISCONNECTED 1
+			)
+		endif()
+
+		ExternalProject_Add(
+			crashpad_ep
+			DOWNLOAD_COMMAND ""
+			SOURCE_DIR "${crashpad_SOURCE_DIR}"
+			INSTALL_COMMAND ""
+			BUILD_COMMAND ""
+			CONFIGURE_COMMAND ""
+			BUILD_BYPRODUCTS
+				"<SOURCE_DIR>/lib/${CMAKE_STATIC_LIBRARY_PREFIX}base${CMAKE_STATIC_LIBRARY_SUFFIX}"
+				"<SOURCE_DIR>/lib/${CMAKE_STATIC_LIBRARY_PREFIX}util${CMAKE_STATIC_LIBRARY_SUFFIX}"
+				"<SOURCE_DIR>/lib/${CMAKE_STATIC_LIBRARY_PREFIX}client${CMAKE_STATIC_LIBRARY_SUFFIX}"
 		)
-	elseif(APPLE)
-		download_project(
-			PROJ crashpad
-			URL https://obsstudionodes3.streamlabs.com/crashpad/crashpad-release-1.0.21-osx.zip
-			UPDATE_DISCONNECTED 1
-		)
-	endif()
 
-	ExternalProject_Add(
-		crashpad_ep
-		DOWNLOAD_COMMAND ""
-		SOURCE_DIR "${crashpad_SOURCE_DIR}"
-		INSTALL_COMMAND ""
-		BUILD_COMMAND ""
-		CONFIGURE_COMMAND ""
-		BUILD_BYPRODUCTS
-			"<SOURCE_DIR>/lib/${CMAKE_STATIC_LIBRARY_PREFIX}base${CMAKE_STATIC_LIBRARY_SUFFIX}"
-			"<SOURCE_DIR>/lib/${CMAKE_STATIC_LIBRARY_PREFIX}util${CMAKE_STATIC_LIBRARY_SUFFIX}"
-			"<SOURCE_DIR>/lib/${CMAKE_STATIC_LIBRARY_PREFIX}client${CMAKE_STATIC_LIBRARY_SUFFIX}"
-	)
+		# Our crashpad artifacts assume a particular format
+		# <dir>\bin contains external processes
+		# <dir>\lib contains static libraries we need to link against
+		# <dir>\include contains the primary include path
+		# <dir>\include\third_party\mini_chromium contains chromium include files
 
-	# Our crashpad artifacts assume a particular format
-	# <dir>\bin contains external processes
-	# <dir>\lib contains static libraries we need to link against
-	# <dir>\include contains the primary include path
-	# <dir>\include\third_party\mini_chromium contains chromium include files
+		add_library(crashpad_util STATIC IMPORTED)
+		add_library(crashpad_base STATIC IMPORTED)
+		add_library(crashpad_client STATIC IMPORTED)
 
-	add_library(crashpad_util STATIC IMPORTED)
-	add_library(crashpad_base STATIC IMPORTED)
-	add_library(crashpad_client STATIC IMPORTED)
+		# From this, we get three total targets:
+		#   crashpad_base
+		#   crashpad_util
+		#   crashpad_client
+		# It's recommended to use util but not required as far as I know.
 
-	# From this, we get three total targets:
-	#   crashpad_base
-	#   crashpad_util
-	#   crashpad_client
-	# It's recommended to use util but not required as far as I know.
+		ExternalProject_Get_Property(crashpad_ep source_dir)
 
-	ExternalProject_Get_Property(crashpad_ep source_dir)
+		set_property(TARGET crashpad_base PROPERTY IMPORTED_LOCATION
+			"${source_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}base${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-	set_property(TARGET crashpad_base PROPERTY IMPORTED_LOCATION
-		"${source_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}base${CMAKE_STATIC_LIBRARY_SUFFIX}")
+		set_property(TARGET crashpad_util PROPERTY IMPORTED_LOCATION
+			"${source_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}util${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-	set_property(TARGET crashpad_util PROPERTY IMPORTED_LOCATION
-		"${source_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}util${CMAKE_STATIC_LIBRARY_SUFFIX}")
+		set_property(TARGET crashpad_client PROPERTY IMPORTED_LOCATION
+			"${source_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}client${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-	set_property(TARGET crashpad_client PROPERTY IMPORTED_LOCATION
-		"${source_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}client${CMAKE_STATIC_LIBRARY_SUFFIX}")
-
-	target_include_directories(
-		crashpad_base
-		INTERFACE "${source_dir}/include/third_party/mini_chromium/mini_chromium"
-	)
-
-	target_include_directories(
-		crashpad_client
-		INTERFACE "${source_dir}/include"
-	)
-
-	add_library(crashpad INTERFACE)
-
-	target_link_libraries(
-		crashpad
-		INTERFACE
+		target_include_directories(
 			crashpad_base
+			INTERFACE "${source_dir}/include/third_party/mini_chromium/mini_chromium"
+		)
+
+		target_include_directories(
 			crashpad_client
-			crashpad_util
-	)
+			INTERFACE "${source_dir}/include"
+		)
 
-	target_link_libraries(crashpad_util INTERFACE crashpad_client)
+		add_library(crashpad INTERFACE)
 
-	add_dependencies(crashpad_base crashpad_ep)
-	add_dependencies(crashpad_client crashpad_base)
-	add_dependencies(crashpad_util crashpad_client)
+		target_link_libraries(
+			crashpad
+			INTERFACE
+				crashpad_base
+				crashpad_client
+				crashpad_util
+		)
 
-	target_link_libraries(win-streamlabs-vst crashpad)
+		target_link_libraries(crashpad_util INTERFACE crashpad_client)
+
+		add_dependencies(crashpad_base crashpad_ep)
+		add_dependencies(crashpad_client crashpad_base)
+		add_dependencies(crashpad_util crashpad_client)
+
+		target_link_libraries(win-streamlabs-vst crashpad)
+	endif()
 
 	target_compile_features(win-streamlabs-vst PRIVATE cxx_std_17)
 
