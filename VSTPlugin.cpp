@@ -35,8 +35,8 @@ VSTPlugin::VSTPlugin(obs_source_t *sourceContext) :
 	m_effect{nullptr},
 	m_is_open{false}
 {
-	memset(m_effectName, 0, 64);
-	memset(m_vendorString, 0, 64);
+	memset(m_effectName, 0, sizeof(m_effectName));
+	memset(m_vendorString, 0, sizeof(m_vendorString));
 
 	int numChannels = VST_MAX_CHANNELS;
 	int blocksize   = BLOCK_SIZE;
