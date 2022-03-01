@@ -17,7 +17,7 @@ intptr_t grpc_vst_communicatorClient::dispatcher(AEffect* a, int b, int c, intpt
 	request.set_param3(d);
 	request.set_param4(f);
 	request.set_ptr_value(int64_t(ptr));
-	request.set_ptr_size(ptr_size);
+	request.set_ptr_size(int32_t(ptr_size));
 
 	if (ptr_size > 0)
 	{
@@ -163,7 +163,7 @@ void grpc_vst_communicatorClient::processReplacing(AEffect* a, float** adata, fl
 	a->version = reply.version();
 }
 
-void grpc_vst_communicatorClient::sendHwndMsg(AEffect* a, int msgType)
+void grpc_vst_communicatorClient::sendHwndMsg(AEffect* /*a*/, int msgType)
 {
 	grpc_sendHwndMsg_Request request;
 	request.set_msgtype(msgType);
@@ -199,7 +199,7 @@ void grpc_vst_communicatorClient::updateAEffect(AEffect* a)
 	a->version = reply.version();
 }
 
-void grpc_vst_communicatorClient::stopServer(AEffect* a)
+void grpc_vst_communicatorClient::stopServer(AEffect* /*a*/)
 {
 	grpc_stopServer_Request request;
 	request.set_nullreply(0);

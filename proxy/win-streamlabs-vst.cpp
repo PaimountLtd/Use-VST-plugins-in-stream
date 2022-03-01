@@ -13,7 +13,7 @@
 
 #pragma comment(lib, "Winmm.lib")
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
+int WINAPI wWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, PWSTR pCmdLine, int /*nCmdShow*/)
 {
 #ifndef _DEBUG
 	CrashHandler handler;
