@@ -14,7 +14,7 @@ using grpc::Status;
 
 class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service
 {
-	Status com_grpc_dispatcher(ServerContext* context, const grpc_dispatcher_Request* request, grpc_dispatcher_Reply* reply) override
+	Status com_grpc_dispatcher(ServerContext*, const grpc_dispatcher_Request* request, grpc_dispatcher_Reply* reply) override
 	{
 		if (m_effect == nullptr)
 			return Status::OK;
@@ -81,7 +81,7 @@ class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service
 		return Status::OK;
 	}
 
-	Status com_grpc_processReplacing(ServerContext* context, const grpc_processReplacing_Request* request, grpc_processReplacing_Reply* reply) override
+	Status com_grpc_processReplacing(ServerContext*, const grpc_processReplacing_Request* request, grpc_processReplacing_Reply* reply) override
 	{
 		if (m_effect == nullptr)
 			return Status::OK;
@@ -135,7 +135,7 @@ class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service
 		return Status::OK;
 	}
 
-	Status com_grpc_setParameter(ServerContext* context, const grpc_setParameter_Request* request, grpc_setParameter_Reply* reply) override
+	Status com_grpc_setParameter(ServerContext*, const grpc_setParameter_Request* request, grpc_setParameter_Reply* reply) override
 	{
 		if (m_effect == nullptr)
 			return Status::OK;
@@ -156,7 +156,7 @@ class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service
 		return Status::OK;
 	}
 
-	Status com_grpc_getParameter(ServerContext* context, const grpc_getParameter_Request* request, grpc_getParameter_Reply* reply) override
+	Status com_grpc_getParameter(ServerContext*, const grpc_getParameter_Request* request, grpc_getParameter_Reply* reply) override
 	{
 		if (m_effect == nullptr)
 			return Status::OK;
@@ -178,7 +178,7 @@ class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service
 		return Status::OK;
 	}
 
-	Status com_grpc_sendHwndMsg(ServerContext* context, const grpc_sendHwndMsg_Request* request, grpc_sendHwndMsg_Reply* reply) override
+	Status com_grpc_sendHwndMsg(ServerContext*, const grpc_sendHwndMsg_Request* request, grpc_sendHwndMsg_Reply*) override
 	{
 		if (m_effect == nullptr)
 			return Status::OK;
@@ -187,7 +187,7 @@ class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service
 		return Status::OK;
 	}
 
-	Status com_grpc_updateAEffect(ServerContext* context, const grpc_updateAEffect_Request* request, grpc_updateAEffect_Reply* reply) override
+	Status com_grpc_updateAEffect(ServerContext*, const grpc_updateAEffect_Request*, grpc_updateAEffect_Reply* reply) override
 	{
 		if (m_effect == nullptr)
 			return Status::OK;
@@ -206,7 +206,7 @@ class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service
 		return Status::OK;
 	}
 
-	Status com_grpc_stopServer(ServerContext* context, const grpc_stopServer_Request* request, grpc_stopServer_Reply* reply) override
+	Status com_grpc_stopServer(ServerContext*, const grpc_stopServer_Request*, grpc_stopServer_Reply* reply) override
 	{
 		m_owner->m_stopSignal = true;
 		reply->set_nullreply(0);
@@ -257,7 +257,7 @@ bool VstModule::start()
 		return false;
 
 	// Instantiate the plug-in
-	m_effect = mainEntryPoint([](AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
+	m_effect = mainEntryPoint([](AEffect *effect, int32_t opcode, int32_t /*index*/, intptr_t /*value*/, void* /*ptr*/, float /*opt*/)
 	{
 		// hostCallback
 		if (effect && effect->user != nullptr)

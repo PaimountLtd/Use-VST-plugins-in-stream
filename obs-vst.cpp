@@ -376,7 +376,7 @@ static void fill_out_plugins(obs_property_t *list)
 	}
 }
 
-static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_data_t *settings)
+static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_data_t */*settings*/)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)obs_properties_get_param(props);
 	if (!vstPlugin) {

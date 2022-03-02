@@ -35,6 +35,8 @@ VSTPlugin::VSTPlugin(obs_source_t *sourceContext) :
 	m_effect{nullptr},
 	m_is_open{false}
 {
+	memset(m_effectName, 0, sizeof(m_effectName));
+	memset(m_vendorString, 0, sizeof(m_vendorString));
 
 	int numChannels = VST_MAX_CHANNELS;
 	int blocksize   = BLOCK_SIZE;
@@ -330,10 +332,10 @@ std::string VSTPlugin::getChunk(VstChunkType type)
 			return "";
 		}
 
-		encodedData.resize(cbase64_calc_encoded_length(chunkSize));
+		encodedData.resize(cbase64_calc_encoded_length(uint32_t(chunkSize)));
 
 		int blockEnd = 
-		cbase64_encode_block((const unsigned char*)buf, chunkSize, &encodedData[0], &encoder);
+		cbase64_encode_block((const unsigned char*)buf, uint32_t(chunkSize), &encodedData[0], &encoder);
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
 
 		blog(LOG_WARNING, "VST Plug-in: getChunk by effGetChunk complete,  %s", encodedData.c_str());
@@ -357,9 +359,9 @@ std::string VSTPlugin::getChunk(VstChunkType type)
 			const char *bytes = reinterpret_cast<const char *>(&params[0]);
 			size_t size = sizeof(float) * params.size();
 
-			encodedData.resize(cbase64_calc_encoded_length(size));
+			encodedData.resize(cbase64_calc_encoded_length(uint32_t(size)));
 
-			int blockEnd = cbase64_encode_block((const unsigned char*)bytes, size, &encodedData[0], &encoder);
+			int blockEnd = cbase64_encode_block((const unsigned char*)bytes, uint32_t(size), &encodedData[0], &encoder);
 			cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
 		}
 		else
@@ -395,8 +397,8 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 		return;
 	}
 
-	decodedData.resize(cbase64_calc_decoded_length(data.data(), data.size()));
-	cbase64_decode_block(data.data(), data.size(), (unsigned char*)&decodedData[0], &decoder);
+	decodedData.resize(cbase64_calc_decoded_length(data.data(), uint32_t(data.size())));
+	cbase64_decode_block(data.data(), uint32_t(data.size()), (unsigned char*)&decodedData[0], &decoder);
 	data = "";
 	
 	if (m_effect->flags & effFlagsProgramChunks && type != VstChunkType::Parameter)
@@ -409,7 +411,7 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 		const char * p_chars  = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);
 
-		int size = decodedData.length() / sizeof(float);
+		int size = uint32_t(decodedData.length()) / sizeof(float);
 
 		std::vector<float> params(p_floats, p_floats + size);
 
@@ -439,8 +441,8 @@ void VSTPlugin::setProgram(const int programNumber)
 
 	if (programNumber < m_effect->numPrograms)
 	{
-		int ret = m_remote->dispatcher(m_effect.get(), effSetProgram, 0, programNumber, nullptr, 0.0f, 0);
-		blog(LOG_ERROR, "VST Plug-in: setProgram get %d from effSetProgram", ret);
+		intptr_t ret = m_remote->dispatcher(m_effect.get(), effSetProgram, 0, programNumber, nullptr, 0.0f, 0);
+		blog(LOG_ERROR, "VST Plug-in: setProgram get %lld from effSetProgram", ret);
 	}
 	else
 	{
@@ -458,10 +460,10 @@ int VSTPlugin::getProgram()
 		return 0;
 	}
 
-	int ret = m_remote->dispatcher(m_effect.get(), effGetProgram, 0, 0, nullptr, 0.0f, 0);
-	blog(LOG_ERROR, "VST Plug-in: getProgram get %d from effGetProgram", ret);
+	intptr_t ret = m_remote->dispatcher(m_effect.get(), effGetProgram, 0, 0, nullptr, 0.0f, 0);
+	blog(LOG_ERROR, "VST Plug-in: getProgram get %lld from effGetProgram", ret);
 	verifyProxy();
-	return ret;
+	return static_cast<int>(ret);
 }
 
 void VSTPlugin::getSourceNames()
