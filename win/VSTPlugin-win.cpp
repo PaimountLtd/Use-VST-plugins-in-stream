@@ -48,7 +48,7 @@ AEffect* VSTPlugin::loadEffect()
 	m_effect = std::make_unique<AEffect>();
 	std::wstring startparams = L"streamlabs_vst.exe \"" + std::wstring(wpath) + L"\" " + std::to_wstring(portNumber) + L" " + std::to_wstring(GetCurrentProcessId());
 
-	std::string module_path = obs_get_module_binary_path(obs_get_module("obs-vst"));
+	std::string module_path = obs_get_module_binary_path(obs_current_module());
 	std::wstring process_path = std::filesystem::path(module_path).remove_filename().wstring() + L"/win-streamlabs-vst.exe";
 
 	if (!CreateProcessW(process_path.c_str(), (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer))
