@@ -201,8 +201,6 @@ static void vst_update(void *data, obs_data_t *settings)
 			vstPlugin->setChunk(VstChunkType::Program, str_chunkDataProgram);
 			vstPlugin->setChunk(VstChunkType::Bank, str_chunkDataBank);
 		}
-
-		blog(LOG_DEBUG, "VST Plug-in: Loading chunk for filter %s | %s | %s | %s ", str_chunkDataBank.c_str(), str_chunkDataProgram.c_str(), str_chunkDataParameter.c_str(), str_chunkDataPath.c_str());
 	}	
 	
 	vst_save(data, settings);

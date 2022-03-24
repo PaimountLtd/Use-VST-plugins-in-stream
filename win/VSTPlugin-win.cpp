@@ -34,7 +34,7 @@ using grpc::Status;
 
 AEffect* VSTPlugin::loadEffect()
 {
-	blog(LOG_WARNING, "VST Plug-in: path %s", m_pluginPath.c_str());
+	blog(LOG_DEBUG, "VST Plug-in: starting win-streamlabs-vst.exe for '%s'", m_pluginPath.c_str());
 
 	wchar_t *wpath;
 	os_utf8_to_wcs_ptr(m_pluginPath.c_str(), 0, &wpath);

@@ -90,7 +90,7 @@ void VSTPlugin::loadEffectFromPath(std::string path)
 	
 	std::lock_guard<std::recursive_mutex> grd(m_effectStatusMutex);
 
-	blog(LOG_DEBUG, "VST Plug-in: loadEffectFromPath from pluginPath %s ", m_pluginPath.c_str());
+	blog(LOG_DEBUG, "VST Plug-in: loadEffectFromPath from pluginPath %s ", path.c_str());
 	m_pluginPath = path;
 
 	unloadEffect();
@@ -258,8 +258,6 @@ void VSTPlugin::openEditor()
 	if (isProxyDisconnected())
 		return;
 
-	blog(LOG_WARNING, "VST Plug-in: openEditor send_show");	
-
 	if (m_effect != nullptr && m_remote != nullptr)
 	{
 		if (!m_windowCreated)
@@ -292,8 +290,6 @@ void VSTPlugin::hideEditor()
 void VSTPlugin::closeEditor()
 {
 	m_is_open = false;
-	
-	blog(LOG_WARNING, "VST Plug-in: closeEditor, sending close...");
 
 	if (m_windowCreated && m_effect != nullptr && m_remote != nullptr)
 	{
@@ -308,7 +304,6 @@ std::string VSTPlugin::getChunk(VstChunkType type)
 {
 	cbase64_encodestate encoder;
 	std::string encodedData;
-	blog(LOG_INFO, "VST Plug-in: getChunk started");
 
 	if (m_effect == nullptr || m_remote == nullptr)
 	{
@@ -337,8 +332,6 @@ std::string VSTPlugin::getChunk(VstChunkType type)
 		int blockEnd = 
 		cbase64_encode_block((const unsigned char*)buf, uint32_t(chunkSize), &encodedData[0], &encoder);
 		cbase64_encode_blockend(&encodedData[blockEnd], &encoder);
-
-		blog(LOG_WARNING, "VST Plug-in: getChunk by effGetChunk complete,  %s", encodedData.c_str());
 		return encodedData;
 	}
 	else if (!(m_effect->flags & effFlagsProgramChunks) && type == VstChunkType::Parameter)
@@ -369,11 +362,11 @@ std::string VSTPlugin::getChunk(VstChunkType type)
 			blog(LOG_WARNING, "VST Plug-in: getChunk params.empty()");
 		}
 
-		blog(LOG_WARNING, "VST Plug-in: getChunk by getParameter complete,  %s", encodedData.c_str());
 		return encodedData;
 	}
 
-	blog(LOG_INFO, "VST Plug-in: getChunk option unavailable");
+	// Not every VST uses every type, we don't need to know about that in the logs
+	//blog(LOG_INFO, "VST Plug-in: getChunk option unavailable");
 	return "";
 }
 
@@ -381,11 +374,9 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 {
 	if (data.size() == 0)
 	{
-		blog(LOG_WARNING, "VST Plug-in: setChunk with empty data chunk ignored");
+		blog(LOG_DEBUG, "VST Plug-in: setChunk with empty data chunk ignored");
 		return;
 	}
-
-	blog(LOG_INFO, "VST Plug-in: setChunk called for data %s", data.c_str());
 
 	cbase64_decodestate decoder;
 	cbase64_init_decodestate(&decoder);
@@ -393,7 +384,7 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 	
 	if (m_effect == nullptr || m_remote == nullptr)
 	{
-		blog(LOG_WARNING, "VST Plug-in: setChunk effect is not ready yet");
+		blog(LOG_ERROR, "VST Plug-in: setChunk effect is not ready yet");
 		return;
 	}
 
@@ -404,7 +395,6 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 	if (m_effect->flags & effFlagsProgramChunks && type != VstChunkType::Parameter)
 	{
 		auto ret = m_remote->dispatcher(m_effect.get(), effSetChunk, type == VstChunkType::Bank ? 0 : 1, decodedData.length(), &decodedData[0], 0.0, decodedData.length());
-		blog(LOG_WARNING, "VST Plug-in: setChunk get %08X from effSetChunk", ret);
 	}
 	else if (!(m_effect->flags & effFlagsProgramChunks) && type == VstChunkType::Parameter)
 	{
@@ -426,16 +416,13 @@ void VSTPlugin::setChunk(VstChunkType type, std::string & data)
 	}
 
 	verifyProxy();
-	blog(LOG_WARNING, "VST Plug-in: setChunk finished");
 }
 
 void VSTPlugin::setProgram(const int programNumber)
 {
-	blog(LOG_ERROR, "VST Plug-in: setProgram for %d", programNumber);
-	
 	if (m_effect == nullptr || m_remote == nullptr)
 	{
-		blog(LOG_WARNING, "VST Plug-in: setProgram effect is not ready yet");
+		blog(LOG_ERROR, "VST Plug-in: setProgram effect is not ready yet");
 		return;
 	}
 
@@ -461,7 +448,6 @@ int VSTPlugin::getProgram()
 	}
 
 	intptr_t ret = m_remote->dispatcher(m_effect.get(), effGetProgram, 0, 0, nullptr, 0.0f, 0);
-	blog(LOG_ERROR, "VST Plug-in: getProgram get %lld from effGetProgram", ret);
 	verifyProxy();
 	return static_cast<int>(ret);
 }
