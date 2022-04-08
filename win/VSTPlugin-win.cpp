@@ -48,10 +48,15 @@ AEffect* VSTPlugin::loadEffect()
 	m_effect = std::make_unique<AEffect>();
 	std::wstring startparams = L"streamlabs_vst.exe \"" + std::wstring(wpath) + L"\" " + std::to_wstring(portNumber) + L" " + std::to_wstring(GetCurrentProcessId());
 
-	std::string module_path = obs_get_module_binary_path(obs_current_module());
-	std::wstring process_path = std::filesystem::path(module_path).remove_filename().wstring() + L"/win-streamlabs-vst.exe";
+	BOOL launched = FALSE;
+	const char * module_path = obs_get_module_binary_path(obs_current_module());
+	if (!module_path)
+		return nullptr;
+ 
+	std::wstring process_path = std::filesystem::u8path(module_path).remove_filename().wstring() + L"/win-streamlabs-vst.exe";
 
-	if (!CreateProcessW(process_path.c_str(), (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer))
+	launched = CreateProcessW(process_path.c_str(), (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer);
+	if (!launched)
 	{
 		::MessageBoxA(NULL, (std::filesystem::path(m_pluginPath).filename().string() + " failed to launch.\n\n You may restart the application or recreate the filter to try again.").c_str(), "VST Filter Error",
 			MB_ICONERROR | MB_TOPMOST);
