@@ -49,7 +49,7 @@ AEffect* VSTPlugin::loadEffect()
 	std::wstring startparams = L"streamlabs_vst.exe \"" + std::wstring(wpath) + L"\" " + std::to_wstring(portNumber) + L" " + std::to_wstring(GetCurrentProcessId());
 
 	BOOL launched = FALSE;
-	const char * module_path = obs_get_module_binary_path(obs_current_module());
+	const char *module_path = obs_get_module_binary_path(obs_current_module());
 	if (!module_path)
 		return nullptr;
  
