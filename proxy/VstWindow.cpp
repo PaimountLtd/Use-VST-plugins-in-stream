@@ -4,16 +4,12 @@
 
 #include <assert.h>
 
-VstWindow::VstWindow(AEffect* afx) :
-	m_effect(afx)
-{
-
-}
+VstWindow::VstWindow(AEffect *afx) : m_effect(afx) {}
 
 VstWindow::~VstWindow()
 {
 	// Application is shutting down at this point
-	// 
+	//
 	//if (m_hwnd != NULL)
 	//	::DestroyWindow(m_hwnd);
 }
@@ -23,8 +19,7 @@ void VstWindow::init()
 	if (m_hwnd != NULL)
 		return;
 
-	auto EffectWindowProc = [](HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-	{
+	auto EffectWindowProc = [](HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		if (!hWnd)
 			return static_cast<LRESULT>(NULL);
 
@@ -33,8 +28,8 @@ void VstWindow::init()
 
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	};
-	
-	WNDCLASSEXW wcex{ sizeof(wcex) };
+
+	WNDCLASSEXW wcex{sizeof(wcex)};
 	wcex.lpfnWndProc = EffectWindowProc;
 	wcex.hInstance = GetModuleHandleW(nullptr);
 	wcex.lpszClassName = L"Minimal VST host - Guest VST Window Frame";
@@ -45,19 +40,18 @@ void VstWindow::init()
 
 	HWND hwnd = CreateWindowEx(exStyle, wcex.lpszClassName, TEXT(""), style, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
 
-	if (hwnd == NULL)
-	{
+	if (hwnd == NULL) {
 		//;error
 		return;
 	}
 
-	VstRect* vstRect = nullptr;
+	VstRect *vstRect = nullptr;
 
 	::EnableMenuItem(GetSystemMenu(hwnd, FALSE), SC_CLOSE, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
 
-	m_effect->dispatcher(m_effect, effEditOpen, 0, 0, hwnd, 0);	
+	m_effect->dispatcher(m_effect, effEditOpen, 0, 0, hwnd, 0);
 	m_effect->dispatcher(m_effect, effEditGetRect, 0, 0, &vstRect, 0);
-	
+
 	::ShowWindow(hwnd, SW_SHOW);
 	::ShowWindow(hwnd, SW_HIDE);
 	::ShowWindow(hwnd, SW_RESTORE);
@@ -75,10 +69,10 @@ void VstWindow::init()
 		::GetWindowRect(hwnd, &rect);
 		::GetClientRect(hwnd, &clientRect);
 
-		border.left  = clientRect.left - rect.left;
+		border.left = clientRect.left - rect.left;
 		border.right = rect.right - clientRect.right;
 
-		border.top    = clientRect.top - rect.top;
+		border.top = clientRect.top - rect.top;
 		border.bottom = rect.bottom - clientRect.bottom;
 	}
 
@@ -94,7 +88,7 @@ void VstWindow::init()
 
 	::SetWindowPos(hwnd, 0, rect.left, rect.top, rect.right, rect.bottom, 0);
 	::SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOSIZE);
-		
+
 	::ShowWindow(hwnd, SW_SHOW);
 	::ShowWindow(hwnd, SW_HIDE);
 	::ShowWindow(hwnd, SW_RESTORE);
@@ -105,38 +99,33 @@ void VstWindow::init()
 }
 
 void VstWindow::update()
-{	
+{
 	MSG msg;
 
 	if (!::PeekMessage(&msg, NULL, NULL, NULL, PM_REMOVE))
 		return;
 
-	switch (msg.message)
-	{
-		case VstProxy::WM_USER_SHOW:
-		{
-			::ShowWindow(m_hwnd, SW_SHOW);
-			::ShowWindow(m_hwnd, SW_HIDE);
-			::ShowWindow(m_hwnd, SW_RESTORE);
-			break;
-		}
-		case VstProxy::WM_USER_HIDE:
-		{
-			::ShowWindow(m_hwnd, SW_HIDE);
-			break;
-		}
-		case VstProxy::WM_USER_CLOSE:
-		{
-			::DestroyWindow(m_hwnd);
-			m_hwnd = NULL;
-			m_effect->dispatcher(m_effect, effEditClose, 0, 0, nullptr, 0);
-			break;
-		}
-		case VstProxy::WM_USER_SETCHUNK:
-		{
-			assert(0);
-			break;
-		}
+	switch (msg.message) {
+	case VstProxy::WM_USER_SHOW: {
+		::ShowWindow(m_hwnd, SW_SHOW);
+		::ShowWindow(m_hwnd, SW_HIDE);
+		::ShowWindow(m_hwnd, SW_RESTORE);
+		break;
+	}
+	case VstProxy::WM_USER_HIDE: {
+		::ShowWindow(m_hwnd, SW_HIDE);
+		break;
+	}
+	case VstProxy::WM_USER_CLOSE: {
+		::DestroyWindow(m_hwnd);
+		m_hwnd = NULL;
+		m_effect->dispatcher(m_effect, effEditClose, 0, 0, nullptr, 0);
+		break;
+	}
+	case VstProxy::WM_USER_SETCHUNK: {
+		assert(0);
+		break;
+	}
 	}
 
 	TranslateMessage(&msg);

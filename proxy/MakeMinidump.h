@@ -6,20 +6,19 @@
 
 #include <shlobj_core.h>
 
-class CrashHandler
-{
+class CrashHandler {
 public:
-	bool start(const std::string& reportServerUrl)
+	bool start(const std::string &reportServerUrl)
 	{
-		PWSTR   ppszPath;	
+		PWSTR ppszPath;
 		HRESULT hResult = SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &ppszPath);
 
 		if (hResult != S_OK)
 			return false;
-	
+
 		std::wstring appdata_path(ppszPath);
 		appdata_path.append(L"\\obs-studio-node-server");
-	
+
 		CoTaskMemFree(ppszPath);
 
 		m_arguments.push_back("--no-rate-limit");

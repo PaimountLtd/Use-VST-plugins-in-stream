@@ -10,10 +10,9 @@
 
 class AEffect;
 
-class VstWindow
-{
+class VstWindow {
 public:
-	VstWindow(AEffect* afx);
+	VstWindow(AEffect *afx);
 	~VstWindow();
 
 public:
@@ -22,12 +21,11 @@ public:
 	void sendMsg(const VstProxy::WM_USER_MSG msg);
 
 private:
-	AEffect* m_effect;
-	std::atomic<HWND> m_hwnd{ NULL };
+	AEffect *m_effect;
+	std::atomic<HWND> m_hwnd{NULL};
 
 private:
-	class VstRect
-	{
+	class VstRect {
 	public:
 		short top;
 		short left;
