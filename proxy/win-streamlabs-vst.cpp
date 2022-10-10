@@ -5,7 +5,7 @@
 #include "VstWindow.h"
 
 #ifndef _DEBUG
-	#include "MakeMinidump.h"
+#include "MakeMinidump.h"
 #endif
 
 #include <shellapi.h>
@@ -31,7 +31,7 @@ int WINAPI wWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, PWSTR 
 	const std::wstring modulePath = argv[0];
 	const std::wstring pipid = argv[1];
 	const std::wstring ownerProcessId = argv[2];
-	
+
 	HANDLE obs64 = OpenProcess(SYNCHRONIZE, FALSE, _wtoi(ownerProcessId.c_str()));
 
 	if (obs64 == NULL)
@@ -39,23 +39,20 @@ int WINAPI wWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, PWSTR 
 
 	std::mutex mtx;
 	std::vector<int> outsideHwndMsgContainer;
-	
+
 	VstModule mod(modulePath, _wtoi(pipid.c_str()));
-	mod.m_hwndSendFunction = [&](int msgType)
-	{
+	mod.m_hwndSendFunction = [&](int msgType) {
 		std::lock_guard<std::mutex> grd(mtx);
 		outsideHwndMsgContainer.push_back(msgType);
 	};
 
-	if (!mod.start())
-	{
+	if (!mod.start()) {
 		return 0;
 	}
 
 	VstWindow vstWindow(mod.m_effect);
 
-	while (WaitForSingleObject(obs64, 0) == WAIT_TIMEOUT && !mod.m_stopSignal)
-	{
+	while (WaitForSingleObject(obs64, 0) == WAIT_TIMEOUT && !mod.m_stopSignal) {
 		std::vector<int> insideMsgsCpy;
 
 		{
@@ -71,7 +68,7 @@ int WINAPI wWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, PWSTR 
 
 		Sleep(1);
 	}
-	
+
 	CloseHandle(obs64);
 	mod.m_stopSignal = true;
 	mod.shutdown_server();

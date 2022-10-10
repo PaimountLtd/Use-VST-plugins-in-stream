@@ -19,17 +19,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <util/platform.h>
 
-AEffect* VSTPlugin::loadEffect()
+AEffect *VSTPlugin::loadEffect()
 {
-	AEffect* plugin = nullptr;
+	AEffect *plugin = nullptr;
 
 	soHandle = os_dlopen(pluginPath.c_str());
 	if (soHandle == nullptr) {
 		blog(LOG_WARNING,
 		     "Failed trying to load VST from '%s',"
 		     "error %d\n",
-		     pluginPath.c_str(),
-		     errno);
+		     pluginPath.c_str(), errno);
 		return nullptr;
 	}
 
@@ -51,7 +50,7 @@ AEffect* VSTPlugin::loadEffect()
 	}
 
 	// Instantiate the plug-in
-	plugin       = mainEntryPoint(hostCallback_static);
+	plugin = mainEntryPoint(hostCallback_static);
 	plugin->user = this;
 	return plugin;
 }

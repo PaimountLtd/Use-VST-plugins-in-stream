@@ -23,17 +23,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace std;
 
-EditorWidget::~EditorWidget()
-{
-
-}
+EditorWidget::~EditorWidget() {}
 
 void EditorWidget::send_show()
 {
 	std::lock_guard<std::recursive_mutex> grd(m_mutex);
 
-	if (!m_windowCreated && m_plugin->getEffect() != nullptr)
-	{
+	if (!m_windowCreated && m_plugin->getEffect() != nullptr) {
 		afx_sendHwndMsg(m_plugin->getEffect(), VstProxy::WM_USER_MSG::WM_USER_CREATE_WINDOW);
 		m_windowCreated = true;
 	}
@@ -62,8 +58,7 @@ void EditorWidget::send_close()
 	m_plugin->chunkDataProgram = m_plugin->getChunk(ChunkType::Program);
 	m_plugin->chunkDataParameter = m_plugin->getChunk(ChunkType::Parameter);
 
-	if (m_windowCreated && m_plugin->getEffect() != nullptr)
-	{
+	if (m_windowCreated && m_plugin->getEffect() != nullptr) {
 		afx_sendHwndMsg(m_plugin->getEffect(), VstProxy::WM_USER_MSG::WM_USER_CLOSE);
 		m_windowCreated = false;
 	}
