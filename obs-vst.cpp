@@ -255,7 +255,8 @@ std::vector<std::string> win32_build_dir_list()
 {
 	const char *program_files_path = getenv("ProgramFiles");
 
-	const char *dir_list[] = {"/Steinberg/VstPlugins/", "/Common Files/Steinberg/Shared Components/", "/Common Files/VST2/", "/Common Files/VSTPlugins/", "/VSTPlugins/"};
+	const char *dir_list[] = {"/Steinberg/VstPlugins/", "/Common Files/Steinberg/Shared Components/", "/Common Files/VST2/", "/Common Files/VSTPlugins/",
+				  "/VSTPlugins/"};
 
 	const int dir_list_size = sizeof(dir_list) / sizeof(dir_list[0]);
 
@@ -322,9 +323,9 @@ static void fill_out_plugins(obs_property_t *list)
 	} else {
 		/* FIXME: Platform dependent areas.
 		   Should use environment variables */
-		std::vector<std::string> dir_list({"/usr/lib/vst/", "/usr/lib/lxvst/", "/usr/lib/linux_vst/", "/usr/lib64/vst/", "/usr/lib64/lxvst/", "/usr/lib64/linux_vst/",
-						   "/usr/local/lib/vst/", "/usr/local/lib/lxvst/", "/usr/local/lib/linux_vst/", "/usr/local/lib64/vst/", "/usr/local/lib64/lxvst/",
-						   "/usr/local/lib64/linux_vst/", "~/.vst/", "~/.lxvst/"});
+		std::vector<std::string> dir_list({"/usr/lib/vst/", "/usr/lib/lxvst/", "/usr/lib/linux_vst/", "/usr/lib64/vst/", "/usr/lib64/lxvst/",
+						   "/usr/lib64/linux_vst/", "/usr/local/lib/vst/", "/usr/local/lib/lxvst/", "/usr/local/lib/linux_vst/",
+						   "/usr/local/lib64/vst/", "/usr/local/lib64/lxvst/", "/usr/local/lib64/linux_vst/", "~/.vst/", "~/.lxvst/"});
 	}
 #endif
 

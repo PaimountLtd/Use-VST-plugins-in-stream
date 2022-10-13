@@ -357,7 +357,8 @@ void VSTPlugin::setChunk(VstChunkType type, std::string &data)
 	data = "";
 
 	if (m_effect->flags & effFlagsProgramChunks && type != VstChunkType::Parameter) {
-		auto ret = m_remote->dispatcher(m_effect.get(), effSetChunk, type == VstChunkType::Bank ? 0 : 1, decodedData.length(), &decodedData[0], 0.0, decodedData.length());
+		auto ret = m_remote->dispatcher(m_effect.get(), effSetChunk, type == VstChunkType::Bank ? 0 : 1, decodedData.length(), &decodedData[0], 0.0,
+						decodedData.length());
 	} else if (!(m_effect->flags & effFlagsProgramChunks) && type == VstChunkType::Parameter) {
 		const char *p_chars = &decodedData[0];
 		const float *p_floats = reinterpret_cast<const float *>(p_chars);

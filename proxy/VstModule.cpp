@@ -26,7 +26,8 @@ class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service {
 		case effGetVendorString: {
 			// Needs a filled and ready buffer to write to
 			outputBuffer.resize(request->ptr_size());
-			retValue = m_effect->dispatcher(m_effect, request->param1(), request->param2(), request->param3(), outputBuffer.data(), request->param4());
+			retValue =
+				m_effect->dispatcher(m_effect, request->param1(), request->param2(), request->param3(), outputBuffer.data(), request->param4());
 			break;
 		}
 		case effGetChunk: {
@@ -42,11 +43,13 @@ class grpc_vst_communicatorImpl final : public grpc_vst_communicator::Service {
 		}
 		case effSetChunk: {
 			// Accepts the incoming data
-			retValue = m_effect->dispatcher(m_effect, request->param1(), request->param2(), request->param3(), (void *)request->ptr_data().data(), request->param4());
+			retValue = m_effect->dispatcher(m_effect, request->param1(), request->param2(), request->param3(), (void *)request->ptr_data().data(),
+							request->param4());
 			break;
 		}
 		default: {
-			retValue = m_effect->dispatcher(m_effect, request->param1(), request->param2(), request->param3(), (void *)request->ptr_value(), request->param4());
+			retValue = m_effect->dispatcher(m_effect, request->param1(), request->param2(), request->param3(), (void *)request->ptr_value(),
+							request->param4());
 			break;
 		}
 		}
