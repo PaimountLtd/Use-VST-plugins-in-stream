@@ -46,7 +46,8 @@ AEffect *VSTPlugin::loadEffect()
 	si.cb = sizeof(si);
 
 	m_effect = std::make_unique<AEffect>();
-	std::wstring startparams = L"streamlabs_vst.exe \"" + std::wstring(wpath) + L"\" " + std::to_wstring(portNumber) + L" " + std::to_wstring(GetCurrentProcessId());
+	std::wstring startparams =
+		L"streamlabs_vst.exe \"" + std::wstring(wpath) + L"\" " + std::to_wstring(portNumber) + L" " + std::to_wstring(GetCurrentProcessId());
 
 	BOOL launched = FALSE;
 	try {
@@ -56,23 +57,25 @@ AEffect *VSTPlugin::loadEffect()
 
 		std::wstring process_path = std::filesystem::u8path(module_path).remove_filename().wstring() + L"/win-streamlabs-vst.exe";
 
-		launched = CreateProcessW(process_path.c_str(), (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer);
+		launched =
+			CreateProcessW(process_path.c_str(), (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer);
 	} catch (...) {
 		blog(LOG_ERROR, "VST Plug-in: Crashed while launching vst server");
 	}
 	if (!launched) {
-		::MessageBoxA(
-			NULL,
-			(std::filesystem::path(m_pluginPath).filename().string() + " failed to launch.\n\n You may restart the application or recreate the filter to try again.")
-				.c_str(),
-			"VST Filter Error", MB_ICONERROR | MB_TOPMOST);
+		::MessageBoxA(NULL,
+			      (std::filesystem::path(m_pluginPath).filename().string() +
+			       " failed to launch.\n\n You may restart the application or recreate the filter to try again.")
+				      .c_str(),
+			      "VST Filter Error", MB_ICONERROR | MB_TOPMOST);
 
 		blog(LOG_ERROR, "VST Plug-in: can't start vst server, GetLastError = %d", GetLastError());
 		m_effect = nullptr;
 		return nullptr;
 	}
 
-	m_remote = std::make_unique<grpc_vst_communicatorClient>(grpc::CreateChannel("localhost:" + std::to_string(portNumber), grpc::InsecureChannelCredentials()));
+	m_remote = std::make_unique<grpc_vst_communicatorClient>(
+		grpc::CreateChannel("localhost:" + std::to_string(portNumber), grpc::InsecureChannelCredentials()));
 	m_remote->updateAEffect(m_effect.get());
 
 	if (!verifyProxy())
