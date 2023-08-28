@@ -1,6 +1,8 @@
 // win-streamlabs-vst.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+#define NOMINMAX
+
 #include "VstModule.h"
 #include "VstWindow.h"
 
