@@ -12,7 +12,7 @@
 #include <timeapi.h>
 
 #pragma comment(lib, "Winmm.lib")
-
+#define NOMINMAX
 int WINAPI wWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, PWSTR pCmdLine, int /*nCmdShow*/)
 {
 #ifndef _DEBUG
