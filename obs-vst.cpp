@@ -97,15 +97,13 @@ static void vst_update(void *data, obs_data_t *settings)
 
 	bool load_vst = false;
 
-	if (!vstPlugin->isProxyDisconnected())
-	{
+	if (!vstPlugin->isProxyDisconnected()) {
 		// Load VST plugin only when creating the filter or when changing plugin
 		if (vstPlugin->getPluginPath() != std::string(path) || vstPlugin->getEffect() == nullptr)
 			load_vst = true;
 	}
 
-	if (load_vst)
-	{
+	if (load_vst) {
 		const bool openWindow = vstPlugin->hasWindowOpen();
 
 		vstPlugin->unloadEffect();
@@ -125,84 +123,68 @@ static void vst_update(void *data, obs_data_t *settings)
 		std::string str_chunkDataParameter = "";
 		std::string str_chunkDataPath = "";
 
-		if (chunkDataPathV3 != NULL && strlen(chunkDataPathV3) > 0)
-		{
+		if (chunkDataPathV3 != NULL && strlen(chunkDataPathV3) > 0) {
 			// check if we have v3
 			blog(LOG_DEBUG, "VST Plug-in: Got path from v3 chunk data continue loading v3");
 			str_chunkDataBank = chunkDataBankV3;
 			str_chunkDataProgram = chunkDataProgramV3;
 			str_chunkDataParameter = chunkDataPV3;
 			str_chunkDataPath = chunkDataPathV3;
-		}
-		else
-		{
+		} else {
 			// migrations from 0.27.1 and from 1.0.0-1.0.3
 			const char *chunkDataV2 = obs_data_get_string(settings, "chunk_data_v2");
-			if (chunkDataV2 != NULL && strlen(chunkDataV2)>0)
-			{
+			if (chunkDataV2 != NULL && strlen(chunkDataV2) > 0) {
 				// check if we have v2
 				blog(LOG_DEBUG, "VST Plug-in: Got v2 chunk data continue migrating from v2");
 				std::string chunkData = chunkDataV2;
 				size_t pathPos = chunkData.find_first_of('|');
 
-				if (pathPos == std::string::npos)
-				{
+				if (pathPos == std::string::npos) {
 					// strange not to have path in v2
 					str_chunkDataPath = path;
 					str_chunkDataBank = chunkData;
 					str_chunkDataParameter = str_chunkDataBank;
-				}
-				else
-				{
+				} else {
 					str_chunkDataPath = chunkData.substr(0, pathPos);
 					size_t lastPos = chunkData.find_last_of('|');
-					str_chunkDataBank = chunkData.substr(lastPos+1);
+					str_chunkDataBank = chunkData.substr(lastPos + 1);
 					str_chunkDataParameter = str_chunkDataBank;
 				}
 
 				obs_data_set_string(settings, "chunk_data_v2", "");
-			}
-			else
-			{
+			} else {
 				const char *chunkDataOld = obs_data_get_string(settings, "chunk_data");
 				blog(LOG_DEBUG, "VST Plug-in: Got old version chunk data continue migrating from old version");
 
-				if (chunkDataOld != NULL && strlen(chunkDataOld)>0)
-				{
+				if (chunkDataOld != NULL && strlen(chunkDataOld) > 0) {
 					// do we have old data
 					std::string chunkData = chunkDataOld;
 					size_t pathPos = chunkData.find_first_of('|');
 
-					if (pathPos == std::string::npos)
-					{
+					if (pathPos == std::string::npos) {
 						str_chunkDataPath = path;
 						str_chunkDataProgram = chunkData;
 						str_chunkDataParameter = str_chunkDataProgram;
-					}
-					else
-					{
+					} else {
 						str_chunkDataPath = chunkData.substr(0, pathPos);
 						size_t lastPos = chunkData.find_last_of('|');
-						str_chunkDataBank = chunkData.substr(lastPos+1);
+						str_chunkDataBank = chunkData.substr(lastPos + 1);
 						str_chunkDataParameter = str_chunkDataBank;
 						obs_data_set_string(settings, "chunk_data", "");
 					}
-				}
-				else
-				{
+				} else {
 					// no data just create empty
 				}
 			}
 		}
 
-		if (str_chunkDataPath.size() > 0)
-		{
+		if (str_chunkDataPath.size() > 0) {
 			vstPlugin->setChunk(VstChunkType::Parameter, str_chunkDataParameter);
 			vstPlugin->setChunk(VstChunkType::Program, str_chunkDataProgram);
 			vstPlugin->setChunk(VstChunkType::Bank, str_chunkDataBank);
 		}
-	}	
-	
+	}
+
 	vst_save(data, settings);
 }
 
@@ -216,13 +198,12 @@ static void *vst_create(obs_data_t *settings, obs_source_t *filter)
 static void vst_save(void *data, obs_data_t *settings)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
-	
+
 	auto chunk1 = vstPlugin->getChunk(VstChunkType::Bank);
 	auto chunk2 = vstPlugin->getChunk(VstChunkType::Program);
 	auto chunk3 = vstPlugin->getChunk(VstChunkType::Parameter);
 
-	if (vstPlugin->verifyProxy())
-	{
+	if (vstPlugin->verifyProxy()) {
 		obs_data_set_string(settings, "chunk_data_0_v3", chunk1.c_str());
 		obs_data_set_string(settings, "chunk_data_1_v3", chunk2.c_str());
 		obs_data_set_string(settings, "chunk_data_p_v3", chunk3.c_str());
@@ -249,13 +230,13 @@ static struct obs_audio_data *vst_filter_audio(void *data, struct obs_audio_data
 
 bool valid_extension(const char *filepath)
 {
-	const char *ext          = os_get_path_extension(filepath);
-	int         filters_size = 1;
+	const char *ext = os_get_path_extension(filepath);
+	int filters_size = 1;
 
 #ifdef __APPLE__
 	const char *filters[] = {".vst"};
 #elif WIN32
-	const char *             filters[] = {".dll"};
+	const char *filters[] = {".dll"};
 #elif __linux__
 	const char *filters[] = {".so", ".o"};
 	++filters_size;
@@ -274,11 +255,8 @@ std::vector<std::string> win32_build_dir_list()
 {
 	const char *program_files_path = getenv("ProgramFiles");
 
-	const char *dir_list[] = {"/Steinberg/VstPlugins/",
-	                          "/Common Files/Steinberg/Shared Components/",
-	                          "/Common Files/VST2/",
-	                          "/Common Files/VSTPlugins/",
-	                          "/VSTPlugins/"};
+	const char *dir_list[] = {"/Steinberg/VstPlugins/", "/Common Files/Steinberg/Shared Components/", "/Common Files/VST2/", "/Common Files/VSTPlugins/",
+				  "/VSTPlugins/"};
 
 	const int dir_list_size = sizeof(dir_list) / sizeof(dir_list[0]);
 
@@ -295,7 +273,7 @@ typedef std::pair<std::string, std::string> vst_data;
 
 static void find_plugins(std::vector<vst_data> &plugin_list, const char *dir_name)
 {
-	os_dir_t * dir = os_opendir(dir_name);
+	os_dir_t *dir = os_opendir(dir_name);
 	os_dirent *ent = os_readdir(dir);
 
 	while (ent != NULL) {
@@ -336,7 +314,7 @@ static void fill_out_plugins(obs_property_t *list)
 	std::vector<std::string> dir_list({"/Library/Audio/Plug-Ins/VST/", "~/Library/Audio/Plug-ins/VST/"});
 
 #elif WIN32
-	std::vector<std::string> dir_list  = win32_build_dir_list();
+	std::vector<std::string> dir_list = win32_build_dir_list();
 
 #elif __linux__
 	char *vstPathEnv = getenv("VST_PATH");
@@ -345,20 +323,9 @@ static void fill_out_plugins(obs_property_t *list)
 	} else {
 		/* FIXME: Platform dependent areas.
 		   Should use environment variables */
-		std::vector<std::string> dir_list({"/usr/lib/vst/",
-		                                   "/usr/lib/lxvst/",
-		                                   "/usr/lib/linux_vst/",
-		                                   "/usr/lib64/vst/",
-		                                   "/usr/lib64/lxvst/",
-		                                   "/usr/lib64/linux_vst/",
-		                                   "/usr/local/lib/vst/",
-		                                   "/usr/local/lib/lxvst/",
-		                                   "/usr/local/lib/linux_vst/",
-		                                   "/usr/local/lib64/vst/",
-		                                   "/usr/local/lib64/lxvst/",
-		                                   "/usr/local/lib64/linux_vst/",
-		                                   "~/.vst/",
-		                                   "~/.lxvst/"});
+		std::vector<std::string> dir_list({"/usr/lib/vst/", "/usr/lib/lxvst/", "/usr/lib/linux_vst/", "/usr/lib64/vst/", "/usr/lib64/lxvst/",
+						   "/usr/lib64/linux_vst/", "/usr/local/lib/vst/", "/usr/local/lib/lxvst/", "/usr/local/lib/linux_vst/",
+						   "/usr/local/lib64/vst/", "/usr/local/lib64/lxvst/", "/usr/local/lib64/linux_vst/", "~/.vst/", "~/.lxvst/"});
 	}
 #endif
 
@@ -374,7 +341,7 @@ static void fill_out_plugins(obs_property_t *list)
 	}
 }
 
-static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_data_t */*settings*/)
+static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_data_t * /*settings*/)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)obs_properties_get_param(props);
 	if (!vstPlugin) {
@@ -398,7 +365,6 @@ static bool open_btn_changed(obs_properties_t *props, obs_property_t *p, obs_dat
 	return true;
 }
 
-
 static obs_properties_t *vst_properties(void *data)
 {
 	VSTPlugin *vstPlugin = (VSTPlugin *)data;
@@ -406,16 +372,13 @@ static obs_properties_t *vst_properties(void *data)
 	obs_properties_t *props = obs_properties_create();
 	obs_properties_set_param(props, vstPlugin, NULL);
 
-	obs_property_t *list = obs_properties_add_list(
-	        props, "plugin_path", PLUG_IN_NAME, OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_t *list = obs_properties_add_list(props, "plugin_path", PLUG_IN_NAME, OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
 	fill_out_plugins(list);
 
-	obs_property_t *open_button =
-	        obs_properties_add_button(props, OPEN_VST_SETTINGS, OPEN_VST_TEXT, open_editor_button_clicked);
+	obs_property_t *open_button = obs_properties_add_button(props, OPEN_VST_SETTINGS, OPEN_VST_TEXT, open_editor_button_clicked);
 
-	obs_property_t *close_button =
-	        obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
+	obs_property_t *close_button = obs_properties_add_button(props, CLOSE_VST_SETTINGS, CLOSE_VST_TEXT, close_editor_button_clicked);
 
 	obs_property_set_visible(open_button, true);
 	obs_property_set_visible(close_button, false);
@@ -432,16 +395,16 @@ static obs_properties_t *vst_properties(void *data)
 bool obs_module_load(void)
 {
 	struct obs_source_info vst_filter = {};
-	vst_filter.id                     = "vst_filter";
-	vst_filter.type                   = OBS_SOURCE_TYPE_FILTER;
-	vst_filter.output_flags           = OBS_SOURCE_AUDIO;
-	vst_filter.get_name               = vst_name;
-	vst_filter.create                 = vst_create;
-	vst_filter.destroy                = vst_destroy;
-	vst_filter.update                 = vst_update;
-	vst_filter.filter_audio           = vst_filter_audio;
-	vst_filter.get_properties         = vst_properties;
-	vst_filter.save                   = vst_save;
+	vst_filter.id = "vst_filter";
+	vst_filter.type = OBS_SOURCE_TYPE_FILTER;
+	vst_filter.output_flags = OBS_SOURCE_AUDIO;
+	vst_filter.get_name = vst_name;
+	vst_filter.create = vst_create;
+	vst_filter.destroy = vst_destroy;
+	vst_filter.update = vst_update;
+	vst_filter.filter_audio = vst_filter_audio;
+	vst_filter.get_properties = vst_properties;
+	vst_filter.save = vst_save;
 
 	obs_register_source(&vst_filter);
 	return true;

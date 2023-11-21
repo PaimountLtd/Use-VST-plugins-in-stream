@@ -20,97 +20,70 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #import "../headers/VSTPlugin.h"
 
-void EditorWidget::buildEffectContainer(AEffect *effect) {
-  cocoaViewContainer = new QMacCocoaViewContainer(nullptr, this);
-  cocoaViewContainer->move(0, 0);
-  cocoaViewContainer->resize(300, 300);
-  NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300)];
-
-  cocoaViewContainer->setCocoaView(view);
-
-  cocoaViewContainer->show();
-
-  auto *hblParams = new QHBoxLayout();
-  hblParams->setContentsMargins(0, 0, 0, 0);
-  hblParams->addWidget(cocoaViewContainer);
-
-  VstRect *vstRect = nullptr;
-  effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
-  if (vstRect) {
-    NSRect frame = NSMakeRect(vstRect->left, vstRect->top, vstRect->right,
-                              vstRect->bottom);
-
-    [view setFrame:frame];
-
-    cocoaViewContainer->resize(vstRect->right - vstRect->left,
-                               vstRect->bottom - vstRect->top);
-
-    this->setGeometry(QRect(0, 0, vstRect->right - vstRect->left,
-                            vstRect->bottom - vstRect->top));
-  }
-
-  effect->dispatcher(effect, effEditOpen, 0, 0, view, 0);
-
-  this->setLayout(hblParams);
-}
-
-
-EditorWidget::~EditorWidget()
+void EditorWidget::buildEffectContainer(AEffect *effect)
 {
-}	
+	cocoaViewContainer = new QMacCocoaViewContainer(nullptr, this);
+	cocoaViewContainer->move(0, 0);
+	cocoaViewContainer->resize(300, 300);
+	NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300)];
 
+	cocoaViewContainer->setCocoaView(view);
 
-void EditorWidget::handleResizeRequest(int width, int height) {
-  resize(width, height);
-  cocoaViewContainer->resize(width, height);
-  NSView *view = cocoaViewContainer->cocoaView();
-  NSRect frame = NSMakeRect(0, 0, width, height);
+	cocoaViewContainer->show();
 
-  [view setFrame:frame];
+	auto *hblParams = new QHBoxLayout();
+	hblParams->setContentsMargins(0, 0, 0, 0);
+	hblParams->addWidget(cocoaViewContainer);
 
-  this->setGeometry(QRect(0, 0, width, height));
+	VstRect *vstRect = nullptr;
+	effect->dispatcher(effect, effEditGetRect, 0, 0, &vstRect, 0);
+	if (vstRect) {
+		NSRect frame = NSMakeRect(vstRect->left, vstRect->top, vstRect->right, vstRect->bottom);
+
+		[view setFrame:frame];
+
+		cocoaViewContainer->resize(vstRect->right - vstRect->left, vstRect->bottom - vstRect->top);
+
+		this->setGeometry(QRect(0, 0, vstRect->right - vstRect->left, vstRect->bottom - vstRect->top));
+	}
+
+	effect->dispatcher(effect, effEditOpen, 0, 0, view, 0);
+
+	this->setLayout(hblParams);
 }
 
-void EditorWidget::buildEffectContainer() {
+EditorWidget::~EditorWidget() {}
 
+void EditorWidget::handleResizeRequest(int width, int height)
+{
+	resize(width, height);
+	cocoaViewContainer->resize(width, height);
+	NSView *view = cocoaViewContainer->cocoaView();
+	NSRect frame = NSMakeRect(0, 0, width, height);
+
+	[view setFrame:frame];
+
+	this->setGeometry(QRect(0, 0, width, height));
 }
 
-void EditorWidget::buildEffectContainer_worker() {
+void EditorWidget::buildEffectContainer() {}
 
-}
+void EditorWidget::buildEffectContainer_worker() {}
 
-void EditorWidget::send_setChunk() {
+void EditorWidget::send_setChunk() {}
 
-}
+void EditorWidget::send_loadEffectFromPath(std::string path) {}
 
-void EditorWidget::send_loadEffectFromPath(std::string path) {
+void EditorWidget::setWindowTitle() {}
 
-}
+void EditorWidget::send_setWindowTitle(const char *title) {}
 
-void EditorWidget::setWindowTitle() {
+void EditorWidget::show() {}
 
-}
+void EditorWidget::dispatcherClose() {}
 
-void EditorWidget::send_setWindowTitle(const char *title) {
+void EditorWidget::close() {}
 
-}
+void EditorWidget::send_show() {}
 
-void EditorWidget::show() {
-
-}
-
-void EditorWidget::dispatcherClose() {
-
-}
-
-void EditorWidget::close() {
-
-}
-
-void EditorWidget::send_show() {
-
-}
-
-void EditorWidget::send_close() {
-
-}
+void EditorWidget::send_close() {}

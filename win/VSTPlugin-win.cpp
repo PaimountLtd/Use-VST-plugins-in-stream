@@ -33,7 +33,7 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-AEffect* VSTPlugin::loadEffect()
+AEffect *VSTPlugin::loadEffect()
 {
 	blog(LOG_DEBUG, "VST Plug-in: starting win-streamlabs-vst.exe for '%s'", m_pluginPath.c_str());
 
@@ -47,7 +47,8 @@ AEffect* VSTPlugin::loadEffect()
 	si.cb = sizeof(si);
 
 	m_effect = std::make_unique<AEffect>();
-	std::wstring startparams = L"streamlabs_vst.exe \"" + std::wstring(wpath) + L"\" " + std::to_wstring(portNumber) + L" " + std::to_wstring(GetCurrentProcessId());
+	std::wstring startparams =
+		L"streamlabs_vst.exe \"" + std::wstring(wpath) + L"\" " + std::to_wstring(portNumber) + L" " + std::to_wstring(GetCurrentProcessId());
 
 	BOOL launched = FALSE;
 	try {
@@ -57,21 +58,25 @@ AEffect* VSTPlugin::loadEffect()
 
 		std::wstring process_path = std::filesystem::u8path(module_path).remove_filename().wstring() + L"/win-streamlabs-vst.exe";
 
-		launched = CreateProcessW(process_path.c_str(), (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer);
+		launched =
+			CreateProcessW(process_path.c_str(), (LPWSTR)startparams.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &m_winServer);
 	} catch (...) {
 		blog(LOG_ERROR, "VST Plug-in: Crashed while launching vst server");
 	}
-	if (!launched)
-	{
-		::MessageBoxA(NULL, (std::filesystem::path(m_pluginPath).filename().string() + " failed to launch.\n\n You may restart the application or recreate the filter to try again.").c_str(), "VST Filter Error",
-			MB_ICONERROR | MB_TOPMOST);
+	if (!launched) {
+		::MessageBoxA(NULL,
+			      (std::filesystem::path(m_pluginPath).filename().string() +
+			       " failed to launch.\n\n You may restart the application or recreate the filter to try again.")
+				      .c_str(),
+			      "VST Filter Error", MB_ICONERROR | MB_TOPMOST);
 
 		blog(LOG_ERROR, "VST Plug-in: can't start vst server, GetLastError = %d", GetLastError());
 		m_effect = nullptr;
 		return nullptr;
 	}
 
-	m_remote = std::make_unique<grpc_vst_communicatorClient>(grpc::CreateChannel("localhost:" + std::to_string(portNumber), grpc::InsecureChannelCredentials()));
+	m_remote = std::make_unique<grpc_vst_communicatorClient>(
+		grpc::CreateChannel("localhost:" + std::to_string(portNumber), grpc::InsecureChannelCredentials()));
 	m_remote->updateAEffect(m_effect.get());
 
 	if (!verifyProxy())
@@ -96,13 +101,13 @@ int32_t VSTPlugin::chooseProxyPort()
 	local.sin_port = htons(0);
 
 	// Bind
-	if (::bind(sockt, (struct sockaddr*)&local, sizeof(local)) == SOCKET_ERROR)
+	if (::bind(sockt, (struct sockaddr *)&local, sizeof(local)) == SOCKET_ERROR)
 		return result;
-	
+
 	struct sockaddr_in my_addr;
 	memset(&my_addr, NULL, sizeof(my_addr));
 	int len = sizeof(my_addr);
-	getsockname(sockt, (struct sockaddr *) &my_addr, &len);
+	getsockname(sockt, (struct sockaddr *)&my_addr, &len);
 	result = ntohs(my_addr.sin_port);
 
 	closesocket(sockt);
@@ -119,25 +124,24 @@ void VSTPlugin::stopProxy()
 
 	if (m_remote == nullptr)
 		return;
-	
+
 	m_remote->stopServer(movedPtr.get());
-	
+
 	// Wait for graceful end in a thread, don't block here
-	std::thread([](HANDLE hProcess, HANDLE hThread, INT nWaitTime) {
-		
-		// Might have to kill it, wait a moment but note that wait time is 0 if tcp connection already isn't valid
-		if (WaitForSingleObject(hProcess, nWaitTime) == WAIT_TIMEOUT) {
-			if (TerminateProcess(hProcess, 0) == FALSE) {
-				blog(LOG_ERROR, "VST Plug-in: process is stuck somehow cannot terminate, GetLastError = %d", GetLastError());
+	std::thread(
+		[](HANDLE hProcess, HANDLE hThread, INT nWaitTime) {
+			// Might have to kill it, wait a moment but note that wait time is 0 if tcp connection already isn't valid
+			if (WaitForSingleObject(hProcess, nWaitTime) == WAIT_TIMEOUT) {
+				if (TerminateProcess(hProcess, 0) == FALSE) {
+					blog(LOG_ERROR, "VST Plug-in: process is stuck somehow cannot terminate, GetLastError = %d", GetLastError());
+				}
 			}
-		}
 
-		CloseHandle(hProcess);
-		CloseHandle(hThread);
-
-	}, m_winServer.hProcess,
-	   m_winServer.hThread,
-	   m_proxyDisconnected ? 3000 : 0).detach();
+			CloseHandle(hProcess);
+			CloseHandle(hThread);
+		},
+		m_winServer.hProcess, m_winServer.hThread, m_proxyDisconnected ? 3000 : 0)
+		.detach();
 
 	m_winServer = {};
 }

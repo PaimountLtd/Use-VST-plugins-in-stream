@@ -36,15 +36,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 class grpc_vst_communicatorClient;
 
-enum VstChunkType
-{
-	Bank,
-	Program,
-	Parameter
-};
+enum VstChunkType { Bank, Program, Parameter };
 
-class VSTPlugin
-{
+class VSTPlugin {
 public:
 	VSTPlugin(obs_source_t *sourceContext);
 	~VSTPlugin();
@@ -54,39 +48,39 @@ public:
 	void openEditor();
 	void closeEditor();
 	void hideEditor();
-	void setChunk(VstChunkType type, std::string & data);
+	void setChunk(VstChunkType type, std::string &data);
 	void setProgram(const int programNumber);
 	void getSourceNames();
 	void setOpenInterfaceWhenActive(const bool val) { m_openInterfaceWhenActive = val; }
 
 	int getProgram();
-	
+
 	bool isEditorOpen();
 	bool hasWindowOpen();
 	bool verifyProxy(const bool notifyAudioPause = false);
 	bool isProxyDisconnected() const { return m_proxyDisconnected; }
 
-	AEffect* loadEffect();
-	AEffect* getEffect() const { return m_effect.get(); }
+	AEffect *loadEffect();
+	AEffect *getEffect() const { return m_effect.get(); }
 
-	obs_audio_data* process(struct obs_audio_data* audio);
+	obs_audio_data *process(struct obs_audio_data *audio);
 
 	std::string getPluginPath();
 	std::string getChunk(VstChunkType type);
 
-	std::atomic<bool> m_proxyDisconnected{ false };
+	std::atomic<bool> m_proxyDisconnected{false};
 
 private:
 	void stopProxy();
 
 	int32_t chooseProxyPort();
 
-	bool m_is_open{ false };
-	bool m_windowCreated{ false };
-	bool m_openInterfaceWhenActive{ false };
+	bool m_is_open{false};
+	bool m_windowCreated{false};
+	bool m_openInterfaceWhenActive{false};
 
-	float** m_inputs{ nullptr };
-	float** m_outputs{ nullptr };
+	float **m_inputs{nullptr};
+	float **m_outputs{nullptr};
 
 	char m_effectName[64];
 	char m_vendorString[64];
@@ -94,12 +88,12 @@ private:
 	std::string m_pluginPath;
 	std::string m_sourceName;
 	std::string m_filterName;
-	
+
 	std::recursive_mutex m_effectStatusMutex;
 
 	std::unique_ptr<AEffect> m_effect;
 
-	obs_source_t* m_sourceContext;
+	obs_source_t *m_sourceContext;
 
 	std::unique_ptr<grpc_vst_communicatorClient> m_remote;
 
