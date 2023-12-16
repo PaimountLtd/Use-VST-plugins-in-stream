@@ -250,5 +250,7 @@ if (WIN32)
 endif()
 
 if (WIN32)
+	set_target_properties(win-streamlabs-vst PROPERTIES LINK_FLAGS "/ignore:4099")
+	set_target_properties(obs-vst PROPERTIES LINK_FLAGS "/ignore:4099")
 	install_obs_plugin(win-streamlabs-vst)
 endif(WIN32)
